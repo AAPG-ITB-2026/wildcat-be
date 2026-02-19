@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export const insertMemberSchema = createInsertSchema(members).omit({ 
   id: true,
-  teamId: true // omit as it will be passed in url params
+  // teamId: true // TODO: omit as it will be passed in url params
 });
 
 export const updateMemberSchema = insertMemberSchema.partial();

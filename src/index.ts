@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route';
+import teams from './modules/teams/teams.route.js';
 
 const app = new Hono();
 
@@ -10,6 +11,7 @@ const app = new Hono();
 app.use('*', secureHeaders());
 
 // 2. CORS (NF02 - Privacy & Access)
+// TODO: adjust whitelisting
 app.use('*', cors({
   origin: '*', // Frontend URL
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -20,6 +22,8 @@ app.get('/health', (c) => c.json({ status: 'ok', uptime: process.uptime() }));
 
 // 4. Mount Modules
 app.route('/api/landing', landing);
+// TODO:replace with final module name
+app.route('/api/teams', teams);
 
 // 5. Start Server
 const port = Number(process.env.PORT) || 3000;
