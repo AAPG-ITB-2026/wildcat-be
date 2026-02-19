@@ -1,26 +1,49 @@
-import { version } from 'os';
 import { z } from 'zod';
 
-export const documentTypeSchema = z.enum(['ktm', 'instagram_follow', 'twibbon']);
+export const ALLOWED_CONTENT_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/pdf',
+] as const;
 
-export const contentTypeSchema = z.enum([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-]);
+export const DOCUMENT_TYPES = ['ktm', 'instagram_follow', 'twibbon'] as const;
 
-export const signUploadSchema = z.object({
-  teamId: z.uuid(),
-  fileName: z.string().min(1),
-  contentType: contentTypeSchema,
-  documentType: documentTypeSchema,
+
+const teamIdField = z
+    .uuid('teamId must be a valid UUID');
+
+const documentTypeField = z.enum(DOCUMENT_TYPES, {
+    error: () => ({ message: `documentType must be one of: ${DOCUMENT_TYPES.join(', ')}` }),
 });
 
+
+export const signUploadSchema = z.object({
+    teamId: teamIdField,
+    documentType: documentTypeField,
+    contentType: z.enum(ALLOWED_CONTENT_TYPES, {
+        error: () => ({
+            message: `contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`,
+        }),
+    }),
+    fileName: z
+        .string()
+        .min(1, 'fileName is required')
+        .max(255, 'fileName too long')
+        .refine(
+            (name) => /\.(jpg|jpeg|png|webp|pdf)$/i.test(name),
+            'fileName must end with a valid extension (.jpg, .jpeg, .png, .webp, .pdf)',
+        ),
+});
+
+
+
 export const confirmUploadSchema = z.object({
-  teamId: z.uuid(),
-  filePath: z.string().min(1),
-  documentType: documentTypeSchema,
+    teamId: teamIdField,
+    documentType: documentTypeField,
+    filePath: z
+        .string()
+        .min(1, 'filePath is required'),
 });
 
 export type SignUploadInput = z.infer<typeof signUploadSchema>;
