@@ -3,11 +3,13 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route';
+import { authMiddleware } from './middlewares/auth';
 
 const app = new Hono();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
+app.use('/api/landing/*', authMiddleware);
 
 // 2. CORS (NF02 - Privacy & Access)
 app.use('*', cors({
