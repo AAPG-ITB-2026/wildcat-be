@@ -1,0 +1,15 @@
+export type UploadErrorCode =
+    | 'TEAM_NOT_FOUND'
+    | 'SIGNED_URL_FAILED'
+    | 'FILE_NOT_FOUND'
+    | 'DB_WRITE_FAILED';
+
+export class UploadError extends Error {
+    public readonly code: UploadErrorCode;
+
+    constructor(code: UploadErrorCode, message: string) {
+        super(message);
+        this.name = 'UploadError';
+        this.code = code;
+    }
+}
