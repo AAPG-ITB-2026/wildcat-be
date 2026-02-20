@@ -1,25 +1,22 @@
 import { Hono } from 'hono';
 
 import { signUploadSchema, confirmUploadSchema } from './upload.schema.js';
-import {
-    generateSignedUploadUrl,
-    confirmDocumentUpload,
-    UploadError,
-    type UploadServiceDeps,
-} from './upload.service.js';
-
-// TODO: Import real dependencies when env vars & migrations are ready
-// import { db } from '../../db/index.js';
-// import { supabaseAdmin } from '../../lib/supabase-admin.js';
+import { generateSignedUploadUrl, confirmDocumentUpload } from './upload.service.js';
+import { UploadError } from './upload.errors.js';
+import type { UploadServiceDeps } from './upload.types.js';
 
 const upload = new Hono();
 
 function getDeps(): UploadServiceDeps {
-    // TODO: Replace placeholder with real injected dependencies:
-    //   return { db, supabaseAdmin };
+    // TODO: Replace with real adapter implementations:
+    //   import { createSupabaseStorage } from './adapters/supabase-storage.adapter.js';
+    //   import { createDrizzleDocumentRepo } from './adapters/drizzle-document.adapter.js';
+    //   import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
+    //   return { storage: createSupabaseStorage(), documents: createDrizzleDocumentRepo(), teams: createDrizzleTeamRepo() };
     return {
-        db: null as any,           // TODO: wire `db` from ../../db/index.js
-        supabaseAdmin: null as any, // TODO: wire `supabaseAdmin` from ../../lib/supabase-admin.js
+        storage: null as any,
+        documents: null as any,
+        teams: null as any,
     };
 }
 
@@ -96,7 +93,7 @@ function handleServiceError(c: any, error: unknown) {
         );
     }
 
-    // TODO: Replace console.error with structured logger (see .pinnedA.md "Logging Strategy")
+    // TODO: Replace console.error with structured logger
     console.error('[upload] Unexpected error:', error);
     return c.json(
         {
