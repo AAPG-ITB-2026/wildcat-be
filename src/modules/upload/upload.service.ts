@@ -2,8 +2,6 @@ import type { SignUploadInput, ConfirmUploadInput } from './upload.schema.js';
 import type { UploadServiceDeps, SignedUploadResult, ConfirmUploadResult } from './upload.types.js';
 import { UploadError } from './upload.errors.js';
 
-const STORAGE_BUCKET = 'documents';
-
 export async function generateSignedUploadUrl(
     input: SignUploadInput,
     deps: UploadServiceDeps,
@@ -11,34 +9,26 @@ export async function generateSignedUploadUrl(
     const { storage, teams } = deps;
     const { teamId, documentType, fileName } = input;
 
-    // TODO: Uncomment when TeamRepository adapter is implemented
-    // const team = await teams.findById(teamId);
-    // if (!team) {
-    //     throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
-    // }
+    const team = await teams.findById(teamId);
+    if (!team) {
+        throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
+    }
 
     const storagePath = buildStoragePath(teamId, documentType, fileName);
 
-    // TODO: Uncomment when StorageClient adapter is implemented
-    // const { data, error } = await storage.createSignedUploadUrl(storagePath, { upsert: true });
-    //
-    // if (error || !data) {
-    //     throw new UploadError(
-    //         'SIGNED_URL_FAILED',
-    //         `Failed to create signed upload URL: ${error?.message ?? 'unknown error'}`,
-    //     );
-    // }
-    //
-    // return {
-    //     signedUrl: data.signedUrl,
-    //     path: data.path,
-    //     token: data.token,
-    // };
+    const { data, error } = await storage.createSignedUploadUrl(storagePath, { upsert: true });
+
+    if (error || !data) {
+        throw new UploadError(
+            'SIGNED_URL_FAILED',
+            `Failed to create signed upload URL: ${error?.message ?? 'unknown error'}`,
+        );
+    }
 
     return {
-        signedUrl: `https://placeholder.supabase.co/storage/v1/upload/sign/${storagePath}`,
-        path: storagePath,
-        token: 'placeholder-token',
+        signedUrl: data.signedUrl,
+        path: data.path,
+        token: data.token,
     };
 }
 
@@ -49,37 +39,23 @@ export async function confirmDocumentUpload(
     const { storage, documents, teams } = deps;
     const { teamId, filePath } = input;
 
-    // TODO: Uncomment when TeamRepository adapter is implemented
-    // const team = await teams.findById(teamId);
-    // if (!team) {
-    //     throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
-    // }
+    const team = await teams.findById(teamId);
+    if (!team) {
+        throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
+    }
 
-    // TODO: Uncomment when StorageClient adapter is implemented
-    // const { data: files, error } = await storage.listFiles(
-    //     filePath.split('/').slice(0, -1).join('/'),
-    //     filePath.split('/').pop(),
-    // );
-    // if (!files || files.length === 0) {
-    //     throw new UploadError('FILE_NOT_FOUND', `No file found at path: ${filePath}`);
-    // }
+    const { data: files, error } = await storage.listFiles(
+        filePath.split('/').slice(0, -1).join('/'),
+        filePath.split('/').pop(),
+    );
+    if (!files || files.length === 0) {
+        throw new UploadError('FILE_NOT_FOUND', `No file found at path: ${filePath}`);
+    }
 
-    // TODO: Use storage.getPublicUrl(filePath) when StorageClient adapter is implemented
-    const fileUrl = `https://placeholder.supabase.co/storage/v1/object/public/${STORAGE_BUCKET}/${filePath}`;
+    const fileUrl = storage.getPublicUrl(filePath);
 
-    // TODO: Uncomment when DocumentRepository adapter is implemented
-    // const document = await documents.insert({ teamId, fileUrl, isVerified: false });
-    // return { document };
-
-    return {
-        document: {
-            id: 'placeholder-uuid',
-            teamId,
-            fileUrl,
-            isVerified: false,
-            createdAt: new Date(),
-        },
-    };
+    const document = await documents.insert({ teamId, fileUrl, isVerified: false });
+    return { document };
 }
 
 export function buildStoragePath(
