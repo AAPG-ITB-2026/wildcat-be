@@ -1,6 +1,6 @@
 {
-  "id": "8e9ff789-2f04-434a-b2f5-8b0452e3b2ea",
-  "prevId": "88d21ca4-68da-4e14-a0b0-a01622e836d9",
+  "id": "b83f4361-3f3f-46c4-9b2d-8b1b2dbdfcd7",
+  "prevId": "8e9ff789-2f04-434a-b2f5-8b0452e3b2ea",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -41,10 +41,10 @@
       "uniqueConstraints": {
         "app_content_section_unique": {
           "name": "app_content_section_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "section"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -106,15 +106,15 @@
         "documents_team_id_teams_id_fk": {
           "name": "documents_team_id_teams_id_fk",
           "tableFrom": "documents",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -133,6 +133,12 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "team_id": {
           "name": "team_id",
@@ -158,15 +164,15 @@
         "members_team_id_teams_id_fk": {
           "name": "members_team_id_teams_id_fk",
           "tableFrom": "members",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -231,25 +237,25 @@
         "payments_team_id_teams_id_fk": {
           "name": "payments_team_id_teams_id_fk",
           "tableFrom": "payments",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "payments_order_id_unique": {
           "name": "payments_order_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "order_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -304,15 +310,15 @@
         "submissions_team_id_teams_id_fk": {
           "name": "submissions_team_id_teams_id_fk",
           "tableFrom": "submissions",
+          "tableTo": "teams",
           "columnsFrom": [
             "team_id"
           ],
-          "tableTo": "teams",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -398,10 +404,10 @@
       "uniqueConstraints": {
         "teams_team_name_unique": {
           "name": "teams_team_name_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "team_name"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -442,10 +448,10 @@
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},
