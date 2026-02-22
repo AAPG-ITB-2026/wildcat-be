@@ -1,7 +1,9 @@
 import { db } from "../../db/index.js";
+import { eq } from "drizzle-orm";
 import { teams, members } from "../../db/schema.js";
 
 // works as a transaction (teams - members) -> a team cannot be created without leader
+// TODO: TAKE USERID FROM AUTH INSTEAD OF POST DATA
 export const createTeam = async (teamData: any) => {
     try {
         return await db.transaction(async (tx) => {
@@ -26,5 +28,23 @@ export const createTeam = async (teamData: any) => {
         })
     } catch (error: any) {
         throw error;
+    }
+}
+
+export const getAllTeams = async () => {
+    try {
+        const data = await db.select().from(teams)
+        return data
+    } catch (error: any) {
+        throw error
+    }
+}
+
+export const getTeamById = async (teamId: string) => {
+    try {
+        const data = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1)
+        return data
+    } catch (error: any) {
+        throw error
     }
 }

@@ -1,6 +1,7 @@
 import type { Context } from "hono";
-import { insertTeamSchema } from "./teams.schema.js";
-import { createTeam } from "./teams.service.js";
+import { insertTeamSchema, selectTeamSchema } from "./teams.schema.js";
+import { createTeam, getAllTeams, getTeamById } from "./teams.service.js";
+import z from "zod";
 
 export const handleCreateTeam = async (c: Context) => {
     try {
@@ -18,7 +19,7 @@ export const handleCreateTeam = async (c: Context) => {
         // unique contraints violation
         if (error.code === "23505") {
             const detail = error.detail;
-            
+
             // TODO: test these includes keys
             if (detail.includes("team_name")) {
                 return c.json({ success: false, error: "Team name already exists" }, 409);
@@ -31,6 +32,30 @@ export const handleCreateTeam = async (c: Context) => {
         }
 
         // unexpected error
+        console.error(error);
+        return c.json({ success: false, error: "An unexpected error occurred" }, 500);
+    }
+}
+
+export const handleGetAllTeams = async (c: Context) => {
+    try {
+        const data = await getAllTeams()
+        const parsedData = z.array(selectTeamSchema).parse((data))
+        return c.json({ data: parsedData })
+    } catch (error: any) {
+        console.error(error);
+        return c.json({ success: false, error: "An unexpected error occurred" }, 500);
+    }
+}
+
+export const handleGetTeamById = async (c: Context) => {
+    try {
+        const teamId = c.req.param('id')
+        const data = await getTeamById(teamId)
+
+        const parsedData = z.array(selectTeamSchema).parse((data))
+        return c.json({ data: parsedData[0] })
+    } catch (error: any) {
         console.error(error);
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);
     }
