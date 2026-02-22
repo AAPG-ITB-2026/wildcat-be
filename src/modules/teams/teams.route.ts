@@ -1,8 +1,13 @@
 import { Hono } from 'hono';
-import { handleCreateTeam } from './teams.controller.js';
+import { handleCreateTeam, handleGetAllTeams, handleGetTeamById } from './teams.controller.js';
+import { handleAddMember, handleGetAllTeamMembers } from '../members/members.controller.js'
 
-const teams = new Hono()
+const teamsRoute = new Hono()
 
-teams.post('', handleCreateTeam)
+teamsRoute.post('', handleCreateTeam)
+teamsRoute.get('', handleGetAllTeams)
+teamsRoute.get('/:id', handleGetTeamById)
+teamsRoute.post('/:id/members', handleAddMember)
+teamsRoute.get('/:id/members', handleGetAllTeamMembers)
 
-export default teams
+export default teamsRoute
