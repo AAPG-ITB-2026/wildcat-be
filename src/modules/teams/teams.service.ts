@@ -1,6 +1,7 @@
 import { db } from "../../db/index.js";
 import { eq } from "drizzle-orm";
 import { teams, members } from "../../db/schema.js";
+import { type InferSelectModel } from "drizzle-orm";
 
 // works as a transaction (teams - members) -> a team cannot be created without leader
 // TODO: TAKE USERID FROM AUTH INSTEAD OF POST DATA
@@ -28,6 +29,19 @@ export const createTeam = async (teamData: any) => {
         })
     } catch (error: any) {
         throw error;
+    }
+}
+
+export const updateTeam = async (updates: Partial<InferSelectModel<typeof teams>>, id: string) => {
+    try {
+        const [updatedTeam] = await db.update(teams)
+            .set(updates)
+            .where(eq(teams.id, id))
+            .returning();
+
+        return updatedTeam;
+    } catch (error: any) {
+        throw error
     }
 }
 

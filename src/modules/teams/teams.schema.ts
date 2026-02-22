@@ -13,6 +13,9 @@ export const insertTeamSchema = createInsertSchema(teams, {
     status: true,
 })
 
+// TODO: clarify - can leaders change?
+export const updateTeamSchema = insertTeamSchema.omit({}).partial();
+
 export const teamIdParamSchema = z.object({
     teamId: z.string().uuid(),  // for auth/param validation
 })

@@ -21,6 +21,7 @@ export const handleAddMember = async (c: Context) => {
 
 // id alone should be enough
 // However, since a member's info has universal information besides teamId, there might be a better way to handle member data
+// Because an id only identifies a membership within one team, what if the user is assigned to multiple teams? the major and full name won't change anyway
 export const handleUpdateMemberInfo = async (c: Context) => {
     try{
         const id = c.req.param('id')

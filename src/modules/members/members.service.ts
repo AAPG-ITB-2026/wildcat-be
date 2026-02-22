@@ -20,6 +20,7 @@ export const addMember = async (memberData: any, teamId: string) => {
     }
 }
 
+
 export const updateMember = async (updates: Partial<InferSelectModel<typeof members>>, id: string) => {
     try {
         const [updatedMember] = await db.update(members)
@@ -33,6 +34,7 @@ export const updateMember = async (updates: Partial<InferSelectModel<typeof memb
     }
 }
 
+
 export const getAllTeamMembers = async (teamId: string) => {
     try {
         const membersResult = await db.select().from(members).where(eq(members.teamId, teamId))
@@ -41,6 +43,7 @@ export const getAllTeamMembers = async (teamId: string) => {
 
     }
 }
+
 
 export const getMemberById = async (id: string) => {
     try {

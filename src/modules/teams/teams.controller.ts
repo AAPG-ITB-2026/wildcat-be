@@ -1,6 +1,6 @@
 import type { Context } from "hono";
-import { insertTeamSchema, selectTeamSchema } from "./teams.schema.js";
-import { createTeam, getAllTeams, getTeamById } from "./teams.service.js";
+import { insertTeamSchema, selectTeamSchema, updateTeamSchema } from "./teams.schema.js";
+import { createTeam, getAllTeams, getTeamById, updateTeam } from "./teams.service.js";
 import z from "zod";
 
 export const handleCreateTeam = async (c: Context) => {
@@ -35,6 +35,22 @@ export const handleCreateTeam = async (c: Context) => {
         console.error(error);
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);
     }
+}
+
+// TODO: clarif: why must leader names and major be in teams table? this causes some problems
+export const handleUpdateTeam = async (c: Context) => {
+    try{
+        const id = c.req.param('id')
+        const data = await c.req.json()
+        const parsedData = updateTeamSchema.parse(data)
+
+        const updatedTeam = await updateTeam(parsedData, id)
+        return c.json({success: true, data: updatedTeam}, 202)
+        
+    } catch (error: any){
+        
+    }
+    
 }
 
 export const handleGetAllTeams = async (c: Context) => {
