@@ -40,10 +40,11 @@ export const teams = pgTable('teams', {
 });
 
 // ----------------------------------------------------------------------
-// 4. MEMBERS
+
 // ----------------------------------------------------------------------
 export const members = pgTable('members', {
   id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(), // Links to Supabase auth.users (No FK constraint possible across schemas usually)
   teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
   fullName: text('full_name').notNull(),
   major: text('major').notNull(),
