@@ -1,4 +1,4 @@
-import { createInsertSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { teams } from "../../db/schema.js";
 import z from "zod";
 
@@ -18,3 +18,9 @@ export const teamIdParamSchema = z.object({
 })
 
 // TODO: add update teams info schema
+//
+
+export const selectTeamSchema = createSelectSchema(teams)
+export const publicTeamSchema = selectTeamSchema.omit({
+    id:true,
+})
