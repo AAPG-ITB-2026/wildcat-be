@@ -1,4 +1,3 @@
-import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
@@ -22,10 +21,4 @@ app.get('/health', (c) => c.json({ status: 'ok', uptime: process.uptime() }));
 app.route('/api/landing', landing);
 
 // 5. Start Server
-const port = Number(process.env.PORT) || 3000;
-console.log(`Wildcat Backend running on port ${port}`);
-
-serve({
-  fetch: app.fetch,
-  port
-});
+export default app;
