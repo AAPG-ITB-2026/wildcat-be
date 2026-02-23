@@ -8,12 +8,31 @@
 .idea/usage.statistics.xml
 .idea/shelf
 
+# cloudflare workers
+.dev.vars
+.preview.vars
+.prod.vars
+.production.vars
+*.vars
+.secrets
+*.secrets
+*.secret
+
 # deps
 node_modules/
+
+# build outputs
+dist/
+build/
+*.tsbuildinfo
 
 # env
 .env
 .env.production
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # logs
 logs/
@@ -24,5 +43,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# test & coverage
+coverage/
+.nyc_output/
+
+# cache
+.cache/
+.eslintcache
+
+# runtime files
+*.pid
+*.pid.lock
+*.seed
+
+# local database artifacts
+*.sqlite
+*.sqlite3
+*.db
+
 # misc
 .DS_Store
+Thumbs.db
+tmp/
+temp/
