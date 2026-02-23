@@ -6,7 +6,7 @@ export interface StorageResult<T> {
 export interface StorageClient {
     createSignedUploadUrl(
         path: string,
-        options?: { upsert?: boolean },
+        options?: { upsert?: boolean; contentType?: string },
     ): Promise<StorageResult<{ signedUrl: string; path: string; token: string }>>;
 
     listFiles(
