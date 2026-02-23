@@ -8,6 +8,16 @@
 .idea/usage.statistics.xml
 .idea/shelf
 
+# cloudflare workers
+.dev.vars
+.preview.vars
+.prod.vars
+.production.vars
+*.vars
+.secrets
+*.secrets
+*.secret
+
 # deps
 node_modules/
 
