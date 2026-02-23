@@ -1,15 +1,16 @@
-import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route';
 import teamsRoute from './modules/teams/teams.route.js';
 import membersRoute from './modules/members/members.route.js';
+import { authMiddleware } from './middlewares/auth';
 
 const app = new Hono();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
+app.use('/api/landing/*', authMiddleware);
 
 // 2. CORS (NF02 - Privacy & Access)
 // TODO: adjust whitelisting and credentials: true
@@ -35,3 +36,4 @@ serve({
   fetch: app.fetch,
   port
 });
+export default app;
