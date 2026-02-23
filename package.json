@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:r2": "tsx scripts/verify-r2.ts",
+    "verify:r2:write": "tsx scripts/verify-r2.ts --write"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.995.0",
