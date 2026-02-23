@@ -16,7 +16,10 @@ export async function generateSignedUploadUrl(
 
     const storagePath = buildStoragePath(teamId, documentType, fileName);
 
-    const { data, error } = await storage.createSignedUploadUrl(storagePath, { upsert: true });
+    const { data, error } = await storage.createSignedUploadUrl(storagePath, {
+        upsert: true,
+        contentType: input.contentType,
+    });
 
     if (error || !data) {
         throw new UploadError(

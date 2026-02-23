@@ -1,23 +1,27 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 
 import { signUploadSchema, confirmUploadSchema } from './upload.schema.js';
 import { generateSignedUploadUrl, confirmDocumentUpload } from './upload.service.js';
 import { UploadError } from './upload.errors.js';
 import type { UploadServiceDeps } from './upload.types.js';
+import { createR2Storage, loadR2ConfigFromEnv } from './adapters/r2-storage.adapter.js';
+import { createDrizzleDocumentRepo } from './adapters/drizzle-document.adapter.js';
+import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
 
 const upload = new Hono();
 
+let _deps: UploadServiceDeps | null = null;
+
 function getDeps(): UploadServiceDeps {
-    // TODO: Replace with real adapter implementations:
-    //   import { createSupabaseStorage } from './adapters/supabase-storage.adapter.js';
-    //   import { createDrizzleDocumentRepo } from './adapters/drizzle-document.adapter.js';
-    //   import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
-    //   return { storage: createSupabaseStorage(), documents: createDrizzleDocumentRepo(), teams: createDrizzleTeamRepo() };
-    return {
-        storage: null as any,
-        documents: null as any,
-        teams: null as any,
-    };
+    if (!_deps) {
+        _deps = {
+            storage: createR2Storage(loadR2ConfigFromEnv()),
+            documents: createDrizzleDocumentRepo(),
+            teams: createDrizzleTeamRepo(),
+        };
+    }
+    return _deps;
 }
 
 upload.post('/sign', async (c) => {
@@ -32,7 +36,7 @@ upload.post('/sign', async (c) => {
                     error: {
                         code: 'VALIDATION_ERROR',
                         message: 'Invalid request body',
-                        details: parseResult.error.flatten().fieldErrors,
+                        details: z.flattenError(parseResult.error).fieldErrors,
                     },
                 },
                 400,
@@ -59,7 +63,7 @@ upload.post('/confirm', async (c) => {
                     error: {
                         code: 'VALIDATION_ERROR',
                         message: 'Invalid request body',
-                        details: parseResult.error.flatten().fieldErrors,
+                        details: z.flattenError(parseResult.error).fieldErrors,
                     },
                 },
                 400,
