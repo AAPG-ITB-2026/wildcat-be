@@ -1,13 +1,8 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
+import type { Env } from '../types/index.js';
 
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY');
-}
 
-// This client is used for Auth verification and Storage operations
-export const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+export const createSupabaseClient = (env: Env) => {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+};
