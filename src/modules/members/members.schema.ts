@@ -8,9 +8,7 @@ export const insertMemberSchema = createInsertSchema(members).omit({
     teamId: true // TODO: omit as it will be passed in url params
 });
 
-export const updateMemberSchema = insertMemberSchema.omit({
-    userId: true,
-}).partial();
+export const updateMemberSchema = insertMemberSchema.partial();
 
 export const selectMemberSchema = createSelectSchema(members);
 
