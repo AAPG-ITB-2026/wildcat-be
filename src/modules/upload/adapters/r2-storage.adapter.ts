@@ -101,36 +101,32 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
             const base = publicUrl.replace(/\/+$/, '');
             return `${base}/${path}`;
         },
+
+        async headFile(
+            path: string,
+        ): Promise<StorageResult<{ contentType: string; contentLength: number }>> {
+            try {
+                const command = new HeadObjectCommand({
+                    Bucket: bucketName,
+                    Key: path,
+                });
+
+                const response = await client.send(command);
+
+                return {
+                    data: {
+                        contentType: response.ContentType ?? 'application/octet-stream',
+                        contentLength: response.ContentLength ?? 0,
+                    },
+                    error: null,
+                };
+            } catch (err) {
+                return {
+                    data: null,
+                    error: err instanceof Error ? err : new Error(String(err)),
+                };
+            }
+        },
     };
 }
-export function loadR2ConfigFromEnv(): R2StorageConfig {
-    const required = {
-        accountId: process.env.R2_ACCOUNT_ID,
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-        bucketName: process.env.R2_BUCKET_NAME,
-        publicUrl: process.env.R2_PUBLIC_URL,
-    } as const;
 
-    const missing = Object.entries(required)
-        .filter(([, v]) => !v)
-        .map(([k]) => k);
-
-    if (missing.length > 0) {
-        throw new Error(
-            `[R2] Missing required environment variables: ${missing.join(', ')}. ` +
-            'Please set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL.',
-        );
-    }
-
-    return {
-        accountId: required.accountId!,
-        accessKeyId: required.accessKeyId!,
-        secretAccessKey: required.secretAccessKey!,
-        bucketName: required.bucketName!,
-        publicUrl: required.publicUrl!,
-        signedUrlExpiresIn: process.env.R2_SIGNED_URL_EXPIRES_IN
-            ? Number(process.env.R2_SIGNED_URL_EXPIRES_IN)
-            : undefined,
-    };
-}
