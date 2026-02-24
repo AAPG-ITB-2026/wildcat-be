@@ -1,8 +1,8 @@
-import { db } from '../../../db/index.js';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { documents } from '../../../db/schema.js';
 import type { DocumentRepository, DocumentRecord } from '../upload.types.js';
 
-export function createDrizzleDocumentRepo(): DocumentRepository {
+export function createDrizzleDocumentRepo(db: PostgresJsDatabase): DocumentRepository {
     return {
         async insert(data: {
             teamId: string;

@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../../db/index.js';
+import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { teams } from '../../../db/schema.js';
 import type { TeamRepository } from '../upload.types.js';
 
-export function createDrizzleTeamRepo(): TeamRepository {
+export function createDrizzleTeamRepo(db: PostgresJsDatabase): TeamRepository {
     return {
         async findById(id: string): Promise<{ id: string } | null> {
             const [row] = await db
