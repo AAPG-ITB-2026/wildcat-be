@@ -8,7 +8,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import {
     createR2Storage,
-    loadR2ConfigFromEnv,
+    type R2StorageConfig,
 } from '../src/modules/upload/adapters/r2-storage.adapter.js';
 
 function mask(value: string): string {
@@ -23,10 +23,24 @@ function parseArgs() {
     };
 }
 
+function loadR2Config(): R2StorageConfig {
+    const accountId = process.env.R2_ACCOUNT_ID;
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const publicUrl = process.env.R2_PUBLIC_URL;
+
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
+        throw new Error('Missing required R2 env vars. Check .env file.');
+    }
+
+    return { accountId, accessKeyId, secretAccessKey, bucketName, publicUrl };
+}
+
 async function main() {
     const { write } = parseArgs();
 
-    const config = loadR2ConfigFromEnv();
+    const config = loadR2Config();
 
     const endpoint = `https://${config.accountId}.r2.cloudflarestorage.com`;
     const client = new S3Client({

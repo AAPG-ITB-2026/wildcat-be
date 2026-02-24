@@ -14,6 +14,10 @@ export interface StorageClient {
         search?: string,
     ): Promise<StorageResult<{ name: string }[]>>;
 
+    headFile(
+        path: string,
+    ): Promise<StorageResult<{ contentType: string; contentLength: number }>>;
+
     getPublicUrl(path: string): string;
 }
 
