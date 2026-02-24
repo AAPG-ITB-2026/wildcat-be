@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, boolean, decimal, pgEnum, real } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, boolean, decimal, pgEnum, real, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // ----------------------------------------------------------------------
@@ -18,6 +18,26 @@ export const appContent = pgTable('app_content', {
   section: text('section').notNull().unique(), // e.g., 'hero', 'schedule'
   content: text('content').notNull(), // JSON stringified or generic text
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ----------------------------------------------------------------------
+// 2b. APP CONFIG — Toggle flags 
+// ----------------------------------------------------------------------
+export const appConfig = pgTable('app_config', {
+  key: text('key').primaryKey(),   // 'RELEASE_SCORES' | 'MAINTENANCE_MODE'
+  value: text('value').notNull(),  // 'true' | 'false'
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ----------------------------------------------------------------------
+// 2c. ANNOUNCEMENTS — Broadcast messages 
+// ----------------------------------------------------------------------
+export const announcements = pgTable('announcements', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  metadata: jsonb('metadata'),    // optional: { link, category, etc. }
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 // ----------------------------------------------------------------------
