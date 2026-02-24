@@ -6,3 +6,7 @@ compatibility_flags = [ "nodejs_compat" ]
 [[routes]]
 pattern = "api.wildcat2026.com"
 custom_domain = true
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "<YOUR_HYPERDRIVE_CONFIG_ID>"

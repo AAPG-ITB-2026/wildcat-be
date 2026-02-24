@@ -5,23 +5,27 @@ import { signUploadSchema, confirmUploadSchema } from './upload.schema.js';
 import { generateSignedUploadUrl, confirmDocumentUpload } from './upload.service.js';
 import { UploadError } from './upload.errors.js';
 import type { UploadServiceDeps } from './upload.types.js';
-import { createR2Storage, loadR2ConfigFromEnv } from './adapters/r2-storage.adapter.js';
+import { createR2Storage } from './adapters/r2-storage.adapter.js';
 import { createDrizzleDocumentRepo } from './adapters/drizzle-document.adapter.js';
 import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
+import { createDb } from '../../db/index.js';
+import type { Env } from '../../types/index.js';
 
-const upload = new Hono();
+const upload = new Hono<{ Bindings: Env }>();
 
-let _deps: UploadServiceDeps | null = null;
-
-function getDeps(): UploadServiceDeps {
-    if (!_deps) {
-        _deps = {
-            storage: createR2Storage(loadR2ConfigFromEnv()),
-            documents: createDrizzleDocumentRepo(),
-            teams: createDrizzleTeamRepo(),
-        };
-    }
-    return _deps;
+function buildDeps(env: Env): UploadServiceDeps {
+    const db = createDb(env);
+    return {
+        storage: createR2Storage({
+            accountId: env.R2_ACCOUNT_ID,
+            accessKeyId: env.R2_ACCESS_KEY_ID,
+            secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+            bucketName: env.R2_BUCKET_NAME,
+            publicUrl: env.R2_PUBLIC_URL,
+        }),
+        documents: createDrizzleDocumentRepo(db),
+        teams: createDrizzleTeamRepo(db),
+    };
 }
 
 upload.post('/sign', async (c) => {
@@ -43,7 +47,7 @@ upload.post('/sign', async (c) => {
             );
         }
 
-        const result = await generateSignedUploadUrl(parseResult.data, getDeps());
+        const result = await generateSignedUploadUrl(parseResult.data, buildDeps(c.env));
 
         return c.json({ success: true, data: result }, 200);
     } catch (error) {
@@ -70,7 +74,7 @@ upload.post('/confirm', async (c) => {
             );
         }
 
-        const result = await confirmDocumentUpload(parseResult.data, getDeps());
+        const result = await confirmDocumentUpload(parseResult.data, buildDeps(c.env));
 
         return c.json({ success: true, data: result }, 200);
     } catch (error) {
