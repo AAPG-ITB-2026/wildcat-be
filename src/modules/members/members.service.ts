@@ -9,7 +9,6 @@ export const addMember = async (memberData: any, teamId: string) => {
     try {
         const [insertedMember] = await db.insert(members).values({
             teamId: teamId,
-            userId: memberData.userId,
             fullName: memberData.fullName,
             major: memberData.major,
         }).returning()

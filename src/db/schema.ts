@@ -29,8 +29,8 @@ export const teams = pgTable('teams', {
   
   teamName: text('team_name').notNull().unique(), // Source 136: "Team Name that already exists... warning"
   leaderName: text('leader_name').notNull(),
-  university: text('university').notNull(),
   leaderMajor: text('leader_major').notNull(),
+  university: text('university').notNull(),
   
   category: categoryEnum('category').notNull(),
   status: statusEnum('status').default('Registered').notNull(),
@@ -44,7 +44,6 @@ export const teams = pgTable('teams', {
 // ----------------------------------------------------------------------
 export const members = pgTable('members', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').notNull(), // Links to Supabase auth.users (No FK constraint possible across schemas usually)
   teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
   fullName: text('full_name').notNull(),
   major: text('major').notNull(),
