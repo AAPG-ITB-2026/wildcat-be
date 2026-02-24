@@ -21,6 +21,10 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
                 data: [{ name: 'file.jpg' }],
                 error: null,
             }),
+            headFile: vi.fn().mockResolvedValue({
+                data: { contentType: 'image/jpeg', contentLength: 12345 },
+                error: null,
+            }),
             getPublicUrl: vi.fn().mockReturnValue('https://placeholder/public/file.jpg'),
         },
         documents: {
@@ -135,6 +139,7 @@ describe('generateSignedUploadUrl', () => {
                     error: new Error('R2 connection failed'),
                 }),
                 listFiles: vi.fn(),
+                headFile: vi.fn(),
                 getPublicUrl: vi.fn(),
             },
         });
@@ -180,11 +185,12 @@ describe('confirmDocumentUpload', () => {
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
     });
 
-    it('should throw FILE_NOT_FOUND when storage returns empty list', async () => {
+    it('should throw FILE_NOT_FOUND when headFile returns error', async () => {
         const deps = createMockDeps({
             storage: {
                 createSignedUploadUrl: vi.fn(),
-                listFiles: vi.fn().mockResolvedValue({ data: [], error: null }),
+                listFiles: vi.fn(),
+                headFile: vi.fn().mockResolvedValue({ data: null, error: new Error('NotFound') }),
                 getPublicUrl: vi.fn(),
             },
         });
@@ -196,5 +202,34 @@ describe('confirmDocumentUpload', () => {
         };
 
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+    });
+
+    it('should throw INVALID_CONTENT_TYPE when file has disallowed content-type', async () => {
+        const deps = createMockDeps({
+            storage: {
+                createSignedUploadUrl: vi.fn(),
+                listFiles: vi.fn(),
+                headFile: vi.fn().mockResolvedValue({
+                    data: { contentType: 'text/html', contentLength: 500 },
+                    error: null,
+                }),
+                getPublicUrl: vi.fn(),
+            },
+        });
+
+        const input = {
+            teamId: 'team-1',
+            documentType: 'ktm' as const,
+            filePath: 'team-1/ktm/123_evil.html',
+        };
+
+        await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+
+        try {
+            await confirmDocumentUpload(input, deps);
+        } catch (err) {
+            expect(err).toBeInstanceOf(UploadError);
+            expect((err as UploadError).code).toBe('INVALID_CONTENT_TYPE');
+        }
     });
 });
