@@ -1,14 +1,17 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
-import landing from './modules/landing/landing.route';
-import { authMiddleware } from './middlewares/auth';
+import landing from './modules/landing/landing.route.js';
+import admin from './modules/admin/admin.route.js';
+import { authMiddleware } from './middlewares/auth.js';
+import type { Env, Variables } from './types/index.js';
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
 app.use('/api/landing/*', authMiddleware);
+app.use('/api/admin/*', authMiddleware);
 
 // 2. CORS (NF02 - Privacy & Access)
 app.use('*', cors({
@@ -17,10 +20,11 @@ app.use('*', cors({
 }));
 
 // 3. Health Check (For Docker/PM2 - BE-15)
-app.get('/health', (c) => c.json({ status: 'ok', uptime: process.uptime() }));
+app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // 4. Mount Modules
 app.route('/api/landing', landing);
+app.route('/api/admin', admin);
 
 // 5. Start Server
 export default app;
