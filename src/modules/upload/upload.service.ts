@@ -1,4 +1,5 @@
 import type { SignUploadInput, ConfirmUploadInput } from './upload.schema.js';
+import { ALLOWED_CONTENT_TYPES } from './upload.schema.js';
 import type { UploadServiceDeps, SignedUploadResult, ConfirmUploadResult } from './upload.types.js';
 import { UploadError } from './upload.errors.js';
 
@@ -47,12 +48,19 @@ export async function confirmDocumentUpload(
         throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
     }
 
-    const { data: files, error } = await storage.listFiles(
-        filePath.split('/').slice(0, -1).join('/'),
-        filePath.split('/').pop(),
-    );
-    if (!files || files.length === 0) {
+    // Verify the file exists in R2 and check its actual content-type
+    const { data: fileMeta, error } = await storage.headFile(filePath);
+    if (error || !fileMeta) {
         throw new UploadError('FILE_NOT_FOUND', `No file found at path: ${filePath}`);
+    }
+
+    // Server-side content-type enforcement
+    const allowedTypes: readonly string[] = ALLOWED_CONTENT_TYPES;
+    if (!allowedTypes.includes(fileMeta.contentType)) {
+        throw new UploadError(
+            'INVALID_CONTENT_TYPE',
+            `File has content-type '${fileMeta.contentType}', allowed: ${ALLOWED_CONTENT_TYPES.join(', ')}`,
+        );
     }
 
     const fileUrl = storage.getPublicUrl(filePath);

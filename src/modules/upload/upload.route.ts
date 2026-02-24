@@ -86,6 +86,7 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     TEAM_NOT_FOUND: 404,
     SIGNED_URL_FAILED: 502,
     FILE_NOT_FOUND: 404,
+    INVALID_CONTENT_TYPE: 422,
     DB_WRITE_FAILED: 500,
 };
 

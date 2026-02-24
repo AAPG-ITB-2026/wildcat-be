@@ -31,7 +31,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => {
     };
 });
 
-import { createR2Storage, loadR2ConfigFromEnv } from '../adapters/r2-storage.adapter.js';
+import { createR2Storage } from '../adapters/r2-storage.adapter.js';
 import type { R2StorageConfig } from '../adapters/r2-storage.adapter.js';
 
 const baseConfig: R2StorageConfig = {
@@ -182,55 +182,45 @@ describe('R2 Storage Adapter', () => {
 });
 
 
-describe('loadR2ConfigFromEnv', () => {
-    it('should throw when required env vars are missing', () => {
-        delete process.env.R2_ACCOUNT_ID;
-        delete process.env.R2_ACCESS_KEY_ID;
-        delete process.env.R2_SECRET_ACCESS_KEY;
-        delete process.env.R2_BUCKET_NAME;
-        delete process.env.R2_PUBLIC_URL;
+describe('headFile', () => {
+    it('should return content-type and content-length on success', async () => {
+        mockSend.mockResolvedValue({
+            ContentType: 'image/jpeg',
+            ContentLength: 12345,
+        });
 
-        expect(() => loadR2ConfigFromEnv()).toThrow(/Missing required environment variables/);
+        const storage = createStorage();
+        const result = await storage.headFile('team/ktm/123_file.jpg');
+
+        expect(result.error).toBeNull();
+        expect(result.data).toEqual({
+            contentType: 'image/jpeg',
+            contentLength: 12345,
+        });
     });
 
-    it('should return config when all env vars are present', () => {
-        process.env.R2_ACCOUNT_ID = 'acc-123';
-        process.env.R2_ACCESS_KEY_ID = 'key-123';
-        process.env.R2_SECRET_ACCESS_KEY = 'secret-123';
-        process.env.R2_BUCKET_NAME = 'my-bucket';
-        process.env.R2_PUBLIC_URL = 'https://cdn.test.com';
+    it('should return error when file does not exist', async () => {
+        mockSend.mockRejectedValue(new Error('NotFound'));
 
-        const config = loadR2ConfigFromEnv();
+        const storage = createStorage();
+        const result = await storage.headFile('team/ktm/nonexistent.jpg');
 
-        expect(config.accountId).toBe('acc-123');
-        expect(config.accessKeyId).toBe('key-123');
-        expect(config.secretAccessKey).toBe('secret-123');
-        expect(config.bucketName).toBe('my-bucket');
-        expect(config.publicUrl).toBe('https://cdn.test.com');
-
-        delete process.env.R2_ACCOUNT_ID;
-        delete process.env.R2_ACCESS_KEY_ID;
-        delete process.env.R2_SECRET_ACCESS_KEY;
-        delete process.env.R2_BUCKET_NAME;
-        delete process.env.R2_PUBLIC_URL;
+        expect(result.data).toBeNull();
+        expect(result.error).toBeInstanceOf(Error);
+        expect(result.error!.message).toBe('NotFound');
     });
 
-    it('should parse R2_SIGNED_URL_EXPIRES_IN when provided', () => {
-        process.env.R2_ACCOUNT_ID = 'acc';
-        process.env.R2_ACCESS_KEY_ID = 'key';
-        process.env.R2_SECRET_ACCESS_KEY = 'secret';
-        process.env.R2_BUCKET_NAME = 'bucket';
-        process.env.R2_PUBLIC_URL = 'https://cdn.test.com';
-        process.env.R2_SIGNED_URL_EXPIRES_IN = '300';
+    it('should default contentType to application/octet-stream when missing', async () => {
+        mockSend.mockResolvedValue({
+            ContentType: undefined,
+            ContentLength: 0,
+        });
 
-        const config = loadR2ConfigFromEnv();
-        expect(config.signedUrlExpiresIn).toBe(300);
+        const storage = createStorage();
+        const result = await storage.headFile('team/ktm/file.bin');
 
-        delete process.env.R2_ACCOUNT_ID;
-        delete process.env.R2_ACCESS_KEY_ID;
-        delete process.env.R2_SECRET_ACCESS_KEY;
-        delete process.env.R2_BUCKET_NAME;
-        delete process.env.R2_PUBLIC_URL;
-        delete process.env.R2_SIGNED_URL_EXPIRES_IN;
+        expect(result.error).toBeNull();
+        expect(result.data!.contentType).toBe('application/octet-stream');
     });
 });
+
