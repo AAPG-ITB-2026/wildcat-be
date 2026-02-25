@@ -6,8 +6,8 @@ export interface StorageResult<T> {
 export interface StorageClient {
     createSignedUploadUrl(
         path: string,
-        options?: { upsert?: boolean; contentType?: string },
-    ): Promise<StorageResult<{ signedUrl: string; path: string; token: string }>>;
+        options?: { contentType?: string },
+    ): Promise<StorageResult<{ signedUrl: string; path: string }>>;
 
     listFiles(
         folder: string,
@@ -50,7 +50,6 @@ export interface UploadServiceDeps {
 export interface SignedUploadResult {
     signedUrl: string;
     path: string;
-    token: string;
 }
 
 export interface ConfirmUploadResult {
