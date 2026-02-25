@@ -11,6 +11,7 @@ export const DOCUMENT_TYPES = ['ktm', 'instagram_follow', 'twibbon'] as const;
 
 
 const teamIdField = z
+    .string()
     .uuid('teamId must be a valid UUID');
 
 const documentTypeField = z.enum(DOCUMENT_TYPES, {

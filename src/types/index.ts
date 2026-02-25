@@ -2,7 +2,7 @@ import type { User } from '@supabase/supabase-js';
 
 // Cloudflare Workers environment bindings (from wrangler.toml / wrangler secrets)
 export type Env = {
-    // Hyperdrive (managed connection pooler)
+    // Hyperdrive (managed connection pooler — type provided by @cloudflare/workers-types)
     HYPERDRIVE: Hyperdrive;
 
     // Supabase Auth

@@ -1,4 +1,5 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 
 import { signUploadSchema, confirmUploadSchema } from './upload.schema.js';
@@ -87,12 +88,13 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     SIGNED_URL_FAILED: 502,
     FILE_NOT_FOUND: 404,
     INVALID_CONTENT_TYPE: 422,
+    INVALID_FILE_PATH: 400,
     DB_WRITE_FAILED: 500,
 };
 
-function handleServiceError(c: any, error: unknown) {
+function handleServiceError(c: Context<{ Bindings: Env }>, error: unknown) {
     if (error instanceof UploadError) {
-        const status = ERROR_STATUS_MAP[error.code] ?? 500;
+        const status = (ERROR_STATUS_MAP[error.code] ?? 500) as ContentfulStatusCode;
         return c.json(
             {
                 success: false,
