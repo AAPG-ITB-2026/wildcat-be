@@ -53,13 +53,12 @@ describe('R2 Storage Adapter', () => {
     });
 
     describe('createSignedUploadUrl', () => {
-        it('should return a signed URL, path, and token on success', async () => {
+        it('should return a signed URL and path on success', async () => {
             const fakeUrl = 'https://test-account-id.r2.cloudflarestorage.com/signed?X-Amz-Signature=abc';
             mockGetSignedUrl.mockResolvedValue(fakeUrl);
 
             const storage = createStorage();
             const result = await storage.createSignedUploadUrl('team/ktm/123_file.jpg', {
-                upsert: true,
                 contentType: 'image/jpeg',
             });
 
@@ -67,9 +66,6 @@ describe('R2 Storage Adapter', () => {
             expect(result.data).not.toBeNull();
             expect(result.data!.signedUrl).toBe(fakeUrl);
             expect(result.data!.path).toBe('team/ktm/123_file.jpg');
-            expect(result.data!.token).toMatch(
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-            );
         });
 
         it('should return an error result when getSignedUrl throws', async () => {

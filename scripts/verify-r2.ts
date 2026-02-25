@@ -71,7 +71,6 @@ async function main() {
 
     const signPath = `__healthcheck__/sign-${Date.now()}-${randomUUID()}.txt`;
     const signed = await storage.createSignedUploadUrl(signPath, {
-        upsert: true,
         contentType: 'text/plain',
     });
 

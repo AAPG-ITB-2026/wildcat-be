@@ -1,6 +1,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { documents } from '../../../db/schema.js';
 import type { DocumentRepository, DocumentRecord } from '../upload.types.js';
+import { UploadError } from '../upload.errors.js';
 
 export function createDrizzleDocumentRepo(db: PostgresJsDatabase): DocumentRepository {
     return {
@@ -19,7 +20,7 @@ export function createDrizzleDocumentRepo(db: PostgresJsDatabase): DocumentRepos
                 .returning();
 
             if (!row) {
-                throw new Error('[DocumentRepository] Insert returned no rows');
+                throw new UploadError('DB_WRITE_FAILED', '[DocumentRepository] Insert returned no rows');
             }
 
             return {
