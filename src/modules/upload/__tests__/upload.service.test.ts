@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -14,7 +13,7 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
     return {
         storage: {
             createSignedUploadUrl: vi.fn().mockResolvedValue({
-                data: { signedUrl: 'https://supabase.co/signed-url', path: 'test-path', token: 'test-token' },
+                data: { signedUrl: 'https://supabase.co/signed-url', path: 'test-path' },
                 error: null,
             }),
             listFiles: vi.fn().mockResolvedValue({
@@ -82,6 +81,10 @@ describe('sanitizeFileName', () => {
     it('should handle multiple consecutive spaces', () => {
         expect(sanitizeFileName('a   b.jpg')).toBe('a-b.jpg');
     });
+
+    it('should collapse multiple consecutive dots', () => {
+        expect(sanitizeFileName('file..name..jpg')).toBe('file.name.jpg');
+    });
 });
 
 describe('UploadError', () => {
@@ -113,7 +116,6 @@ describe('generateSignedUploadUrl', () => {
 
         expect(result.signedUrl).toBeDefined();
         expect(result.path).toBeDefined();
-        expect(result.token).toBeDefined();
     });
 
     it('should throw TEAM_NOT_FOUND when team does not exist', async () => {
@@ -183,6 +185,25 @@ describe('confirmDocumentUpload', () => {
         };
 
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+    });
+
+    it('should throw INVALID_FILE_PATH when filePath does not match expected prefix', async () => {
+        const deps = createMockDeps();
+
+        const input = {
+            teamId: 'team-1',
+            documentType: 'ktm' as const,
+            filePath: 'other-team/instagram_follow/123_ktm.jpg',
+        };
+
+        await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+
+        try {
+            await confirmDocumentUpload(input, deps);
+        } catch (err) {
+            expect(err).toBeInstanceOf(UploadError);
+            expect((err as UploadError).code).toBe('INVALID_FILE_PATH');
+        }
     });
 
     it('should throw FILE_NOT_FOUND when headFile returns error', async () => {

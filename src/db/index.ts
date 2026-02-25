@@ -10,6 +10,11 @@ import type { Env } from '../types/index.js';
  * @see https://developers.cloudflare.com/hyperdrive/examples/connect-to-postgres/postgres-drivers-and-libraries/postgres-js/
  */
 export const createDb = (env: Env) => {
+    if (!env.HYPERDRIVE || !env.HYPERDRIVE.connectionString) {
+        throw new Error(
+            'HYPERDRIVE binding is not configured. Please define a `HYPERDRIVE` Hyperdrive binding with a valid `connectionString` in wrangler.toml.'
+        );
+    }
     const client = postgres(env.HYPERDRIVE.connectionString, {
         prepare: false, // required for Hyperdrive transaction-mode pooling
         max: 5,         // Workers limit on concurrent external connections

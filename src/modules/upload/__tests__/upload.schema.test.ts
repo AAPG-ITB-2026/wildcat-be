@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect } from 'vitest';
 
 import {
