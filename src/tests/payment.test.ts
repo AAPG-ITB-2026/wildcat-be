@@ -22,11 +22,15 @@ import app from '../index.js';
 let mockPaymentRow: Record<string, unknown> | null = null;
 
 const mockTeamRow = {
-  id: 'team-uuid-1234-5678',
-  userId: 'user-uuid-aaaa-bbbb',
-  leaderName: 'Budi Santoso',
-  category: 'Wildcat',
+  id: 'user-uuid-aaaa-bbbb',
+  competitionId: 'comp-uuid-1111-2222',
+  leadName: 'Budi Santoso',
   status: 'Registered',
+};
+
+const mockCompetitionRow = {
+  id: 'comp-uuid-1111-2222',
+  name: 'Wildcat',
 };
 
 const mockUser = {
@@ -61,15 +65,16 @@ vi.mock('../db/index.js', () => ({
         from: (table: { _?: { name?: string }; [k: string | symbol]: unknown }) => {
           const drizzleName = table[Symbol.for('drizzle:Name')];
           const name = typeof drizzleName === 'string' ? drizzleName : (table._?.name ?? '');
-          _table = name === 'payments' ? 'payments' : 'teams';
+          if (name === 'transactions') _table = 'transactions';
+          else if (name === 'competitions') _table = 'competitions';
+          else _table = 'team_accounts';
           return chain;
         },
         where: () => chain,
         orderBy: () => chain,
         limit: async () => {
-          if (_table === 'payments') {
-            return mockPaymentRow ? [mockPaymentRow] : [];
-          }
+          if (_table === 'transactions') return mockPaymentRow ? [mockPaymentRow] : [];
+          if (_table === 'competitions') return [mockCompetitionRow];
           return [mockTeamRow];
         },
       };
