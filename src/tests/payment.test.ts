@@ -42,6 +42,7 @@ let authShouldSucceed = true;
 let mockSignatureValid = true;
 
 let mockUpdatedRows: Record<string, unknown>[] = [];
+let mockSetCalls: Record<string, unknown>[] = [];
 
 vi.mock('../lib/supabase.js', () => ({
   createSupabaseClient: () => ({
@@ -83,7 +84,10 @@ vi.mock('../db/index.js', () => ({
 
     const makeUpdateChain = () => {
       const chain = {
-        set: () => chain,
+        set: (data: Record<string, unknown>) => {
+          mockSetCalls.push(data);
+          return chain;
+        },
         where: () => chain,
         returning: async () => mockUpdatedRows,
       };
@@ -94,6 +98,12 @@ vi.mock('../db/index.js', () => ({
       select: makeSelectChain,
       insert: () => ({ values: async () => undefined }),
       update: () => makeUpdateChain(),
+      transaction: async (fn: (tx: Record<string, Function>) => Promise<unknown>) => {
+        const tx = {
+          update: () => makeUpdateChain(),
+        };
+        return fn(tx);
+      },
     };
   },
 }));
@@ -144,6 +154,7 @@ const validCallbackBody = {
 beforeEach(() => {
   mockPaymentRow = null;
   mockUpdatedRows = [];
+  mockSetCalls = [];
   authShouldSucceed = true;
   mockSignatureValid = true;
 });
@@ -278,6 +289,22 @@ describe('Scenario 3 — Snap Token generation logic (authenticated)', () => {
     expect(body.status).toBe('settlement');
   });
 
+  it('3b-capture: Prior payment is "capture" (credit card) → 400 Already Paid', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: 'old-token',
+      transactionStatus: 'capture',
+      expirationTime: new Date(Date.now() + 10000).toISOString(),
+    };
+
+    const res = await makeRequest('POST', '/api/payment/token', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Payment already completed');
+    expect(body.status).toBe('capture');
+  });
+
   it('3c: Prior payment is "pending" and token is still valid → returns existing token', async () => {
     const futureExpiry = new Date(Date.now() + 3 * 60 * 1000).toISOString(); // 3 min remaining
 
@@ -351,6 +378,21 @@ describe('Scenario 3 — Snap Token generation logic (authenticated)', () => {
       orderId: 'WILD-team-001',
       snapToken: null,
       transactionStatus: 'failure',
+      expirationTime: new Date(Date.now() - 60000).toISOString(),
+    };
+
+    const res = await makeRequest('POST', '/api/payment/token', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('new_generated');
+  });
+
+  it('3h: Prior payment status is "deny" → creates new token', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: null,
+      transactionStatus: 'deny',
       expirationTime: new Date(Date.now() - 60000).toISOString(),
     };
 
@@ -438,8 +480,100 @@ describe('Scenario 4 — GET /status after token generation', () => {
     expect(res.status).toBe(200);
     expect(body.status).toBe('settlement');
     expect(body.isTokenValid).toBe(false);
-    expect(body.snapToken).toBeNull(); // only exposed when pending+valid
+    expect(body.snapToken).toBeNull();
     expect(body.paymentType).toBe('qris');
+  });
+
+  it('4e: Capture payment → status is capture, token is not re-exposed', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: 'used-token',
+      transactionStatus: 'capture',
+      paymentType: 'credit_card',
+      creationTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      expirationTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    };
+
+    const res = await makeRequest('GET', '/api/payment/status', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('capture');
+    expect(body.isTokenValid).toBe(false);
+    expect(body.snapToken).toBeNull();
+    expect(body.paymentType).toBe('credit_card');
+  });
+
+  it('4f: Deny payment → status is deny', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: null,
+      transactionStatus: 'deny',
+      paymentType: 'credit_card',
+      creationTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      expirationTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    };
+
+    const res = await makeRequest('GET', '/api/payment/status', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('deny');
+    expect(body.isTokenValid).toBe(false);
+  });
+
+  it('4g: Cancel payment → status is cancel', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: null,
+      transactionStatus: 'cancel',
+      paymentType: 'qris',
+      creationTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      expirationTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    };
+
+    const res = await makeRequest('GET', '/api/payment/status', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('cancel');
+    expect(body.isTokenValid).toBe(false);
+  });
+
+  it('4h: Expire payment → status is expire', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: null,
+      transactionStatus: 'expire',
+      paymentType: null,
+      creationTime: new Date(Date.now() - 70 * 60 * 1000).toISOString(),
+      expirationTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    };
+
+    const res = await makeRequest('GET', '/api/payment/status', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('expire');
+    expect(body.isTokenValid).toBe(false);
+  });
+
+  it('4i: Failure payment → status is failure', async () => {
+    mockPaymentRow = {
+      orderId: 'WILD-team-001',
+      snapToken: null,
+      transactionStatus: 'failure',
+      paymentType: null,
+      creationTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      expirationTime: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    };
+
+    const res = await makeRequest('GET', '/api/payment/status', { token: validToken });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('failure');
+    expect(body.isTokenValid).toBe(false);
   });
 });
 
@@ -542,5 +676,190 @@ describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
 
     expect(res.status).toBe(200);
     expect(body.status).toBe('pending'); // default case in switch
+  });
+
+  it('5i: Valid capture callback (credit card) → marks order as captured and team as Paid', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'capture', payment_type: 'credit_card' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('capture');
+    expect(body.orderId).toBe('WILD-team-001');
+  });
+
+  it('5j: Idempotency — second settlement hits terminal guard and returns existing status', async () => {
+    mockPaymentRow = { transactionStatus: 'settlement', orderId: 'WILD-team-001' };
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'settlement' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('settlement');
+    expect(mockSetCalls).toHaveLength(0);
+  });
+
+  it('5k: Callback with "deny" status (credit card declined)', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'deny', payment_type: 'credit_card' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('deny');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(false);
+  });
+
+  it('5l: Callback with "cancel" status (user cancelled mid-payment)', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'cancel', payment_type: 'qris' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('cancel');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(false);
+  });
+
+  it('5m: Callback with "failure" status', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'failure' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('failure');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(false);
+  });
+
+  it('5n: Out-of-order — settlement then deny → deny is rejected, settlement preserved', async () => {
+    mockPaymentRow = { transactionStatus: 'settlement', orderId: 'WILD-team-001' };
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'deny' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('settlement');
+    expect(mockSetCalls).toHaveLength(0);
+  });
+
+  it('5o: Out-of-order — capture then cancel → cancel is rejected, capture preserved', async () => {
+    mockPaymentRow = { transactionStatus: 'capture', orderId: 'WILD-team-001' };
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'cancel' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('capture');
+    expect(mockSetCalls).toHaveLength(0);
+  });
+
+  it('5p: Capture with fraud_status "accept" → marks team as Paid', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: {
+        ...validCallbackBody,
+        transaction_status: 'capture',
+        payment_type: 'credit_card',
+        fraud_status: 'accept',
+      },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('capture');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(true);
+  });
+
+  it('5q: Capture with fraud_status "challenge" → does NOT mark team as Paid', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: {
+        ...validCallbackBody,
+        transaction_status: 'capture',
+        payment_type: 'credit_card',
+        fraud_status: 'challenge',
+      },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('capture');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(false);
+  });
+
+  it('5r: Capture with fraud_status "deny" → does NOT mark team as Paid', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: {
+        ...validCallbackBody,
+        transaction_status: 'capture',
+        payment_type: 'credit_card',
+        fraud_status: 'deny',
+      },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('capture');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(false);
+  });
+
+  it('5s: Capture without fraud_status (non-CC fallback) → marks team as Paid', async () => {
+    mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: {
+        ...validCallbackBody,
+        transaction_status: 'capture',
+        payment_type: 'credit_card',
+      },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('capture');
+    expect(mockSetCalls.some(c => c.status === 'Paid')).toBe(true);
+  });
+
+  it('5t: Out-of-order — settlement then pending → pending is rejected', async () => {
+    mockPaymentRow = { transactionStatus: 'settlement', orderId: 'WILD-team-001' };
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, transaction_status: 'pending' },
+    });
+    const body = await res.json() as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe('settlement');
+    expect(mockSetCalls).toHaveLength(0);
   });
 });

@@ -1,8 +1,3 @@
-/**
- * Midtrans API Client using native fetch
- * Compatible with Cloudflare Workers environment
- */
-
 const IS_PRODUCTION = false; // TODO: Change to true when production is ready
 const BASE_URL = IS_PRODUCTION
   ? 'https://app.midtrans.com'
@@ -35,10 +30,6 @@ const createAuthHeader = (serverKey: string): string => {
   return `Basic ${encoded}`;
 };
 
-/**
- * Create a new transaction in Midtrans Snap
- * Returns snap token that can be used to display payment UI
- */
 export const createMidtransTransaction = async (
   serverKey: string,
   params: MidtransParams
@@ -90,9 +81,6 @@ export const createMidtransTransaction = async (
   return data;
 };
 
-/**
- * Get transaction status from Midtrans Core API
- */
 export const getTransactionStatus = async (
   serverKey: string,
   orderId: string
@@ -118,14 +106,24 @@ export const getTransactionStatus = async (
  * Verify the signature_key field sent by Midtrans in every webhook notification.
  * Formula: SHA512(order_id + status_code + gross_amount + SERVER_KEY)
  * A missing or incorrect signature means the request did not come from Midtrans.
+ *
+ * Uses constant-time comparison to prevent timing side-channel attacks.
  */
 export const verifyMidtransSignature = async (serverKey: string, orderId: string, statusCode: string, grossAmount: string, receivedSignature: string): Promise<boolean> => {
   const input = `${orderId}${statusCode}${grossAmount}${serverKey}`;
   const msgBuffer = new TextEncoder().encode(input);
   const hashBuffer = await crypto.subtle.digest('SHA-512', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex === receivedSignature;
+  const computedHex = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  if (computedHex.length !== receivedSignature.length) return false;
+
+  let mismatch = 0;
+  for (let i = 0; i < computedHex.length; i++) {
+    mismatch |= computedHex.charCodeAt(i) ^ receivedSignature.charCodeAt(i);
+  }
+  return mismatch === 0;
 };
 
 /**

@@ -18,7 +18,7 @@ export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
 export const teamStatusEnum = pgEnum("team_status", ["Registered", "Document_Verified", "Paid"]);
-export const transactionStatusEnum = pgEnum("transaction_status", ["settlement", "pending", "deny", "cancel", "expire", "failure"]);
+export const transactionStatusEnum = pgEnum("transaction_status", ["settlement", "pending", "deny", "cancel", "expire", "failure", "capture"]);
 
 // ==========================================
 // 1. INTERNAL ADMINISTRATION
