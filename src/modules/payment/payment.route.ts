@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, notInArray } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { transactions, teamAccounts, competitions } from '../../db/schema.js';
 import { createMidtransTransaction, cancelTransaction, verifyMidtransSignature } from '../../lib/midtrans.js';
@@ -9,6 +9,7 @@ const payment = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 const TOKEN_VALIDITY_MINUTES = 60;
 const PAYMENT_AMOUNT = 100000;
+const TERMINAL_STATES = ['settlement', 'capture'] as const;
 
 /**
  * POST /api/payment/token
@@ -53,7 +54,7 @@ payment.post('/token', async (c) => {
     if (lastPaymentResult && lastPaymentResult.length > 0) {
       const lastPayment = lastPaymentResult[0];
 
-      if (lastPayment.transactionStatus === 'settlement') {
+      if (lastPayment.transactionStatus === 'settlement' || lastPayment.transactionStatus === 'capture') {
         return c.json(
           {
             error: 'Payment already completed',
@@ -206,15 +207,28 @@ payment.get('/status', async (c) => {
 /**
  * POST /api/payment/callback
  * Midtrans webhook callback handler
- * Updates payment status when Midtrans sends notification.
- * Security: every legitimate Midtrans notification includes a signature_key computed as SHA512(order_id + status_code + gross_amount + SERVER_KEY).
+ *
+ * Security: every legitimate Midtrans notification includes a signature_key
+ * computed as SHA512(order_id + status_code + gross_amount + SERVER_KEY).
  * Requests that fail this check are rejected immediately.
+ *
+ * State machine: once a transaction reaches a terminal state (settlement or
+ * capture), no subsequent webhook can regress it. This prevents out-of-order
+ * replays from corrupting paid transactions.
+ *
+ * Atomicity: the transaction status update and team status update are wrapped
+ * in a single DB transaction so they either both succeed or both roll back.
+ *
+ * fraud_status: for credit-card captures, Midtrans sends a fraud_status field.
+ * Only captures with fraud_status "accept" (or absent) mark the team as Paid.
+ * Captures flagged as "challenge" or "deny" are recorded but the team stays
+ * unpaid until manual review or a follow-up settlement notification.
  */
 payment.post('/callback', async (c) => {
   const body = await c.req.json();
 
   try {
-    const { order_id, transaction_status, payment_type, signature_key, status_code, gross_amount } = body;
+    const { order_id, transaction_status, payment_type, fraud_status, signature_key, status_code, gross_amount } = body;
 
     if (!signature_key || !status_code || !gross_amount) {
       return c.json({ error: 'Missing required signature fields' }, 401);
@@ -238,11 +252,31 @@ payment.post('/callback', async (c) => {
 
     const db = createDb(c.env);
 
-    let status: 'settlement' | 'pending' | 'deny' | 'cancel' | 'expire' | 'failure';
+    const existingTx = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.orderId, order_id))
+      .limit(1);
+
+    if (
+      existingTx.length > 0 &&
+      TERMINAL_STATES.includes(existingTx[0].transactionStatus as typeof TERMINAL_STATES[number])
+    ) {
+      return c.json({
+        success: true,
+        orderId: order_id,
+        status: existingTx[0].transactionStatus,
+      });
+    }
+
+    let status: 'settlement' | 'pending' | 'deny' | 'cancel' | 'expire' | 'failure' | 'capture';
 
     switch (transaction_status) {
       case 'settlement':
         status = 'settlement';
+        break;
+      case 'capture':
+        status = 'capture';
         break;
       case 'pending':
         status = 'pending';
@@ -263,21 +297,31 @@ payment.post('/callback', async (c) => {
         status = 'pending';
     }
 
-    const updated = await db
-      .update(transactions)
-      .set({
-        transactionStatus: status,
-        paymentType: payment_type || null,
-      })
-      .where(eq(transactions.orderId, order_id))
-      .returning();
+    const isCaptureAccepted = status === 'capture' && (!fraud_status || fraud_status === 'accept');
+    const isSuccessful = status === 'settlement' || isCaptureAccepted;
 
-    if (status === 'settlement' && updated.length > 0) {
-      await db
-        .update(teamAccounts)
-        .set({ status: 'Paid' })
-        .where(eq(teamAccounts.id, updated[0].teamId));
-    }
+    await db.transaction(async (tx) => {
+      const updated = await tx
+        .update(transactions)
+        .set({
+          transactionStatus: status,
+          paymentType: payment_type || null,
+        })
+        .where(
+          and(
+            eq(transactions.orderId, order_id),
+            notInArray(transactions.transactionStatus, ['settlement', 'capture'])
+          )
+        )
+        .returning();
+
+      if (isSuccessful && updated.length > 0) {
+        await tx
+          .update(teamAccounts)
+          .set({ status: 'Paid' })
+          .where(eq(teamAccounts.id, updated[0].teamId));
+      }
+    });
 
     return c.json({
       success: true,
