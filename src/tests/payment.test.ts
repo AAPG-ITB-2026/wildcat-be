@@ -8,11 +8,12 @@
  *   - Valid token  → resolves to a real User object → c.set('user', user)
  *   - Invalid/missing token → middleware short-circuits with 401
  *
- * Callback note: POST /callback has NO auth middleware (Midtrans calls it
- * server-to-server). When a non-existent order_id is sent the DB update
- * matches 0 rows and returns an empty array → the handler still returns
- * { success: true } because no error is thrown. This is intentional —
- * the webhook should always ACK to Midtrans, even for unknown orders.
+ * Callback note: POST /callback has NO Supabase auth middleware — Midtrans calls
+ * it server-to-server. However, every legitimate Midtrans notification includes a
+ * signature_key that is verified via SHA512(order_id + status_code + gross_amount
+ * + SERVER_KEY). Requests without a valid signature are rejected with 401.
+ * When a valid-signature request references a non-existent order_id, the DB update
+ * matches 0 rows → the handler still returns { success: true } (intentional ACK).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -34,6 +35,7 @@ const mockUser = {
 };
 
 let authShouldSucceed = true;
+let mockSignatureValid = true;
 
 let mockUpdatedRows: Record<string, unknown>[] = [];
 
@@ -97,6 +99,7 @@ vi.mock('../lib/midtrans.js', () => ({
     redirect_url: 'https://app.sandbox.midtrans.com/snap/v2/vtweb/mock-snap-token-xyz',
   })),
   cancelTransaction: vi.fn(async () => undefined),
+  verifyMidtransSignature: vi.fn(async () => mockSignatureValid),
 }));
 
 const testEnv = {
@@ -124,11 +127,20 @@ function makeRequest(method: string, path: string, options: { token?: string; bo
 const validToken = 'valid-jwt-token';
 const invalidToken = 'totally-invalid-token';
 
+const validCallbackBody = {
+  order_id: 'WILD-team-001',
+  transaction_status: 'settlement',
+  payment_type: 'qris',
+  signature_key: 'mock-sha512-signature',
+  status_code: '200',
+  gross_amount: '100000.00',
+};
 
 beforeEach(() => {
   mockPaymentRow = null;
   mockUpdatedRows = [];
   authShouldSucceed = true;
+  mockSignatureValid = true;
 });
 
 // =============================================================================
@@ -145,7 +157,7 @@ describe('Scenario 1 — Basic endpoint reachability', () => {
     expect(body.status).toBe('new_generated');
     expect(body.token).toBe('mock-snap-token-xyz');
     expect(body).toHaveProperty('expirationTime');
-    expect(body.secondsRemaining).toBe(300); // 5 * 60
+    expect(body.secondsRemaining).toBe(3600); // 60 * 60 — matches Midtrans expiry window
   });
 
   it('GET /api/payment/status responds with hasPayment true', async () => {
@@ -168,11 +180,11 @@ describe('Scenario 1 — Basic endpoint reachability', () => {
     expect(body.snapToken).toBe('mock-snap-token-xyz');
   });
 
-  it('POST /api/payment/callback responds with success (no auth required)', async () => {
+  it('POST /api/payment/callback responds with success when signature is valid', async () => {
     mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-team-001', transaction_status: 'settlement', payment_type: 'qris' },
+      body: { ...validCallbackBody, transaction_status: 'settlement' },
     });
     const body = await res.json() as Record<string, unknown>;
 
@@ -218,13 +230,13 @@ describe('Scenario 2 — Unauthenticated requests', () => {
     expect(body.error).toMatch(/unauthorized/i);
   });
 
-  it('POST /api/payment/callback has no auth guard → 400 (missing order_id) not 401', async () => {
+  it('POST /api/payment/callback without signature fields → 401 (not a Supabase auth check)', async () => {
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { transaction_status: 'settlement' },
+      body: { order_id: 'WILD-team-001', transaction_status: 'settlement' },
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     const body = await res.json() as Record<string, unknown>;
-    expect(body.error).toBe('Missing order_id');
+    expect(body.error).toMatch(/missing required signature fields/i);
   });
 });
 
@@ -429,26 +441,47 @@ describe('Scenario 4 — GET /status after token generation', () => {
 // =============================================================================
 // Scenario 5 — POST /callback (Midtrans webhook simulation)
 //
-// Key insight: callback has NO auth middleware — Midtrans sends server-to-server.
+// Security: every request must carry a valid Midtrans signature_key.
+// The signature is verified before any DB work is done.
 // When order_id doesn't match any DB row, updated = [] (0 rows matched),
-// the handler still returns { success: true } — this is intentional ACK behavior.
-// The team status is NOT updated when updated is empty.
+// and the handler still returns { success: true } — intentional ACK to Midtrans.
 // =============================================================================
 describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
-  it('5a: Missing order_id → 400', async () => {
+  it('5a: Missing signature fields (no signature_key/status_code/gross_amount) → 401', async () => {
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { transaction_status: 'settlement' },
+      body: { order_id: 'WILD-team-001', transaction_status: 'settlement' },
+    });
+    expect(res.status).toBe(401);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.error).toMatch(/missing required signature fields/i);
+  });
+
+  it('5b: Invalid signature → 401', async () => {
+    mockSignatureValid = false;
+
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: { ...validCallbackBody, signature_key: 'tampered-signature' },
+    });
+    expect(res.status).toBe(401);
+    const body = await res.json() as Record<string, unknown>;
+    expect(body.error).toMatch(/invalid signature/i);
+  });
+
+  it('5c: Missing order_id (but valid signature) → 400', async () => {
+    const { order_id: _omit, ...bodyWithoutOrderId } = validCallbackBody;
+    const res = await makeRequest('POST', '/api/payment/callback', {
+      body: bodyWithoutOrderId,
     });
     expect(res.status).toBe(400);
     const body = await res.json() as Record<string, unknown>;
     expect(body.error).toBe('Missing order_id');
   });
 
-  it('5b: Non-existent order_id → success:true but 0 rows updated (silent ACK)', async () => {
+  it('5d: Non-existent order_id (valid signature) → success:true but 0 rows updated (silent ACK)', async () => {
     mockUpdatedRows = []; // DB update matches nothing
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-nonexistent-order', transaction_status: 'settlement', payment_type: 'qris' },
+      body: { ...validCallbackBody, order_id: 'WILD-nonexistent-order' },
     });
     const body = await res.json() as Record<string, unknown>;
 
@@ -456,11 +489,11 @@ describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
     expect(body.success).toBe(true);
   });
 
-  it('5c: Valid settlement callback → marks order as settled', async () => {
+  it('5e: Valid settlement callback → marks order as settled', async () => {
     mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-team-001', transaction_status: 'settlement', payment_type: 'qris' },
+      body: { ...validCallbackBody, transaction_status: 'settlement' },
     });
     const body = await res.json() as Record<string, unknown>;
 
@@ -470,11 +503,11 @@ describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
     expect(body.orderId).toBe('WILD-team-001');
   });
 
-  it('5d: Callback with "pending" status', async () => {
+  it('5f: Callback with "pending" status', async () => {
     mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-team-001', transaction_status: 'pending', payment_type: null },
+      body: { ...validCallbackBody, transaction_status: 'pending', payment_type: null },
     });
     const body = await res.json() as Record<string, unknown>;
 
@@ -482,11 +515,11 @@ describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
     expect(body.status).toBe('pending');
   });
 
-  it('5e: Callback with "expire" status', async () => {
+  it('5g: Callback with "expire" status', async () => {
     mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-team-001', transaction_status: 'expire', payment_type: null },
+      body: { ...validCallbackBody, transaction_status: 'expire', payment_type: null },
     });
     const body = await res.json() as Record<string, unknown>;
 
@@ -494,11 +527,11 @@ describe('Scenario 5 — POST /callback (Midtrans webhook)', () => {
     expect(body.status).toBe('expire');
   });
 
-  it('5f: Callback with unknown transaction_status → falls back to "pending"', async () => {
+  it('5h: Callback with unknown transaction_status → falls back to "pending"', async () => {
     mockUpdatedRows = [{ teamId: mockTeamRow.id, orderId: 'WILD-team-001' }];
 
     const res = await makeRequest('POST', '/api/payment/callback', {
-      body: { order_id: 'WILD-team-001', transaction_status: 'some_weird_status' },
+      body: { ...validCallbackBody, transaction_status: 'some_weird_status' },
     });
     const body = await res.json() as Record<string, unknown>;
 

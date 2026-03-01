@@ -2,12 +2,12 @@ import { Hono } from 'hono';
 import { eq, desc } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { payments, teams } from '../../db/schema.js';
-import { createMidtransTransaction, cancelTransaction } from '../../lib/midtrans.js';
+import { createMidtransTransaction, cancelTransaction, verifyMidtransSignature } from '../../lib/midtrans.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const payment = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-const TOKEN_VALIDITY_MINUTES = 5;
+const TOKEN_VALIDITY_MINUTES = 60;
 const PAYMENT_AMOUNT = 100000;
 
 /**
@@ -88,6 +88,7 @@ payment.post('/token', async (c) => {
     const snapResponse = await createMidtransTransaction(c.env.MIDTRANS_SERVER_KEY, {
       orderId: newOrderId,
       grossAmount: PAYMENT_AMOUNT,
+      expiryMinutes: TOKEN_VALIDITY_MINUTES,
       customerDetails: {
         first_name: team.leaderName,
         email: user.email || '',
@@ -197,13 +198,31 @@ payment.get('/status', async (c) => {
 /**
  * POST /api/payment/callback
  * Midtrans webhook callback handler
- * Updates payment status when Midtrans sends notification
+ * Updates payment status when Midtrans sends notification.
+ * Security: every legitimate Midtrans notification includes a signature_key computed as SHA512(order_id + status_code + gross_amount + SERVER_KEY).
+ * Requests that fail this check are rejected immediately.
  */
 payment.post('/callback', async (c) => {
   const body = await c.req.json();
 
   try {
-    const { order_id, transaction_status, payment_type } = body;
+    const { order_id, transaction_status, payment_type, signature_key, status_code, gross_amount } = body;
+
+    if (!signature_key || !status_code || !gross_amount) {
+      return c.json({ error: 'Missing required signature fields' }, 401);
+    }
+
+    const isValid = await verifyMidtransSignature(
+      c.env.MIDTRANS_SERVER_KEY,
+      order_id ?? '',
+      status_code,
+      gross_amount,
+      signature_key
+    );
+
+    if (!isValid) {
+      return c.json({ error: 'Invalid signature' }, 401);
+    }
 
     if (!order_id) {
       return c.json({ error: 'Missing order_id' }, 400);
