@@ -3,7 +3,7 @@
  * Compatible with Cloudflare Workers environment
  */
 
-const IS_PRODUCTION = false;
+const IS_PRODUCTION = false; // TODO: Change to true when production is ready
 const BASE_URL = IS_PRODUCTION
   ? 'https://app.midtrans.com'
   : 'https://app.sandbox.midtrans.com';
@@ -11,6 +11,7 @@ const BASE_URL = IS_PRODUCTION
 interface MidtransParams {
   orderId: string;
   grossAmount: number;
+  expiryMinutes: number;
   customerDetails: {
     first_name: string;
     email: string;
@@ -65,7 +66,7 @@ export const createMidtransTransaction = async (
     },
     expiry: {
       unit: 'minutes',
-      duration: 60,
+      duration: params.expiryMinutes,
     },
   };
 
@@ -111,6 +112,20 @@ export const getTransactionStatus = async (
   }
 
   return await response.json() as { status_code: string; transaction_status: string; fraud_status?: string };
+};
+
+/**
+ * Verify the signature_key field sent by Midtrans in every webhook notification.
+ * Formula: SHA512(order_id + status_code + gross_amount + SERVER_KEY)
+ * A missing or incorrect signature means the request did not come from Midtrans.
+ */
+export const verifyMidtransSignature = async (serverKey: string, orderId: string, statusCode: string, grossAmount: string, receivedSignature: string): Promise<boolean> => {
+  const input = `${orderId}${statusCode}${grossAmount}${serverKey}`;
+  const msgBuffer = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-512', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex === receivedSignature;
 };
 
 /**
