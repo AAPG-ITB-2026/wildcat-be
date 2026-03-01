@@ -187,7 +187,8 @@ payment.get('/status', async (c) => {
       secondsRemaining: isTokenValid ? secondsRemaining : 0,
       snapToken: isTokenValid ? latestPayment.snapToken : null,
     });
-  } catch (error) {
+  } 
+  catch (error) {
     console.error('Payment status check error:', error);
     return c.json({ error: 'Failed to check payment status' }, 500);
   }
@@ -256,7 +257,8 @@ payment.post('/callback', async (c) => {
       orderId: order_id,
       status: status,
     });
-  } catch (error) {
+  } 
+  catch (error) {
     console.error('Payment callback error:', error);
     return c.json({ error: 'Failed to process callback' }, 500);
   }

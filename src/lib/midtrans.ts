@@ -29,9 +29,6 @@ interface MidtransResponse {
   redirect_url: string;
 }
 
-/**
- * Create Basic Auth header from server key
- */
 const createAuthHeader = (serverKey: string): string => {
   const encoded = btoa(`${serverKey}:`);
   return `Basic ${encoded}`;
@@ -130,12 +127,11 @@ export const cancelTransaction = async (serverKey: string, orderId: string): Pro
       },
     });
 
-    // If already expired or not found (404), that's fine
     if (!response.ok && response.status !== 404) {
       console.log('Cancel transaction warning:', await response.text());
     }
-  } catch (error) {
-    // Silently ignore errors - transaction might already be expired
+  } 
+  catch (error) {
     console.log('Cancel transaction note (may be already expired):', error);
   }
 };
