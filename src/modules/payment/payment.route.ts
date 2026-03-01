@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { eq, desc } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
-import { payments, teams } from '../../db/schema.js';
+import { transactions, teamAccounts, competitions } from '../../db/schema.js';
 import { createMidtransTransaction, cancelTransaction, verifyMidtransSignature } from '../../lib/midtrans.js';
 import type { Env, Variables } from '../../types/index.js';
 
@@ -26,7 +26,7 @@ payment.post('/token', async (c) => {
   const db = createDb(c.env);
 
   try {
-    const teamResult = await db.select().from(teams).where(eq(teams.userId, user.id)).limit(1);
+    const teamResult = await db.select().from(teamAccounts).where(eq(teamAccounts.id, user.id)).limit(1);
 
     if (!teamResult || teamResult.length === 0) {
       return c.json({ error: 'Team not found' }, 404);
@@ -34,11 +34,18 @@ payment.post('/token', async (c) => {
 
     const team = teamResult[0];
 
+    const competitionResult = await db
+      .select()
+      .from(competitions)
+      .where(eq(competitions.id, team.competitionId))
+      .limit(1);
+    const competitionName = competitionResult[0]?.name ?? 'Competition';
+
     const lastPaymentResult = await db
       .select()
-      .from(payments)
-      .where(eq(payments.teamId, team.id))
-      .orderBy(desc(payments.creationTime))
+      .from(transactions)
+      .where(eq(transactions.teamId, team.id))
+      .orderBy(desc(transactions.creationTime))
       .limit(1);
 
     const now = new Date();
@@ -75,9 +82,9 @@ payment.post('/token', async (c) => {
         await cancelTransaction(c.env.MIDTRANS_SERVER_KEY, lastPayment.orderId);
 
         await db
-          .update(payments)
+          .update(transactions)
           .set({ transactionStatus: 'expire' })
-          .where(eq(payments.orderId, lastPayment.orderId));
+          .where(eq(transactions.orderId, lastPayment.orderId));
       }
     }
 
@@ -90,22 +97,23 @@ payment.post('/token', async (c) => {
       grossAmount: PAYMENT_AMOUNT,
       expiryMinutes: TOKEN_VALIDITY_MINUTES,
       customerDetails: {
-        first_name: team.leaderName,
+        first_name: team.leadName,
         email: user.email || '',
       },
       itemDetails: [
         {
-          id: team.category,
+          id: team.competitionId,
           price: PAYMENT_AMOUNT,
           quantity: 1,
-          name: `Wildcat 2026 - ${team.category}`,
+          name: `Wildcat 2026 - ${competitionName}`,
         },
       ],
     });
 
-    await db.insert(payments).values({
+    await db.insert(transactions).values({
       teamId: team.id,
       orderId: newOrderId,
+      amount: String(PAYMENT_AMOUNT),
       snapToken: snapResponse.token,
       creationTime,
       expirationTime,
@@ -144,7 +152,7 @@ payment.get('/status', async (c) => {
   const db = createDb(c.env);
 
   try {
-    const teamResult = await db.select().from(teams).where(eq(teams.userId, user.id)).limit(1);
+    const teamResult = await db.select().from(teamAccounts).where(eq(teamAccounts.id, user.id)).limit(1);
 
     if (!teamResult || teamResult.length === 0) {
       return c.json({ error: 'Team not found' }, 404);
@@ -154,9 +162,9 @@ payment.get('/status', async (c) => {
 
     const latestPaymentResult = await db
       .select()
-      .from(payments)
-      .where(eq(payments.teamId, team.id))
-      .orderBy(desc(payments.creationTime))
+      .from(transactions)
+      .where(eq(transactions.teamId, team.id))
+      .orderBy(desc(transactions.creationTime))
       .limit(1);
 
     if (!latestPaymentResult || latestPaymentResult.length === 0) {
@@ -256,19 +264,19 @@ payment.post('/callback', async (c) => {
     }
 
     const updated = await db
-      .update(payments)
+      .update(transactions)
       .set({
         transactionStatus: status,
         paymentType: payment_type || null,
       })
-      .where(eq(payments.orderId, order_id))
+      .where(eq(transactions.orderId, order_id))
       .returning();
 
     if (status === 'settlement' && updated.length > 0) {
       await db
-        .update(teams)
+        .update(teamAccounts)
         .set({ status: 'Paid' })
-        .where(eq(teams.id, updated[0].teamId));
+        .where(eq(teamAccounts.id, updated[0].teamId));
     }
 
     return c.json({
