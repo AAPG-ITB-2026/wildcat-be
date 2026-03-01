@@ -5,6 +5,7 @@ export type Env = {
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   DATABASE_URL: string;
+  MIDTRANS_SERVER_KEY: string;
 };
 
 export type Variables = {

@@ -1,175 +1,153 @@
-import { 
-  pgTable, 
-  uuid, 
-  varchar, 
-  text, 
-  timestamp, 
-  boolean, 
-  integer, 
-  decimal, 
-  doublePrecision, 
-  pgEnum 
-} from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, boolean, pgEnum, real, jsonb, integer } from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
 
-// ==========================================
-// ENUMS
-// ==========================================
-export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
-export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
-export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
+// ----------------------------------------------------------------------
+// 1. ENUMS (Type Safety for Fixed Values)
+// ----------------------------------------------------------------------
+export const statusEnum = pgEnum('status', ['Registered', 'Document_Verified', 'Paid']);
 
-// ==========================================
-// 1. INTERNAL ADMINISTRATION
-// ==========================================
+export const categoryEnum = pgEnum('category', ['Wildcat', 'Smart_Competition', 'Paper_Competition']);
 
-export const committeeAccounts = pgTable("committee_accounts", {
-  id: uuid("id").primaryKey().notNull(), // Maps to Supabase auth.users.id
-  name: varchar("name", { length: 255 }).notNull(),
-  role: roleEnum("role").notNull(),
-  division: varchar("division", { length: 100 }).notNull(),
-  isActive: boolean("is_active").default(true).notNull(),
+export const transactionStatusEnum = pgEnum('transaction_status', ['settlement', 'pending', 'deny', 'cancel', 'expire', 'failure']);
+
+// ----------------------------------------------------------------------
+// 2. CMS CONTENT (For BE-10 & BE-01)
+// ----------------------------------------------------------------------
+export const appContent = pgTable('app_content', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  section: text('section').notNull().unique(), // e.g., 'hero', 'schedule'
+  content: text('content').notNull(), // JSON stringified or generic text
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-export const competitions = pgTable("competitions", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  minMembers: integer("min_members").notNull(),
-  maxMembers: integer("max_members").notNull(),
-  earlyBirdFee: decimal("early_bird_fee", { precision: 12, scale: 2 }).notNull(),
-  normalBirdFee: decimal("normal_bird_fee", { precision: 12, scale: 2 }).notNull(),
-  earlyBirdDeadline: timestamp("early_bird_deadline").notNull(),
-  guidebookUrl: text("guidebook_url"), // Cloudflare R2 URL
+// ----------------------------------------------------------------------
+// 2b. APP CONFIG — Toggle flags 
+// ----------------------------------------------------------------------
+export const appConfig = pgTable('app_config', {
+  key: text('key').primaryKey(),   // 'RELEASE_SCORES' | 'MAINTENANCE_MODE'
+  value: text('value').notNull(),  // 'true' | 'false'
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-// ==========================================
-// 2. TIMELINE ENGINE
-// ==========================================
-
-export const competitionStages = pgTable("competition_stages", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  competitionId: uuid("competition_id").references(() => competitions.id).notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
+// ----------------------------------------------------------------------
+// 2c. ANNOUNCEMENTS — Broadcast messages 
+// ----------------------------------------------------------------------
+export const announcements = pgTable('announcements', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  metadata: jsonb('metadata'),    // optional: { link, category, etc. }
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
-export const stageRequirements = pgTable("stage_requirements", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  stageId: uuid("stage_id").references(() => competitionStages.id).notNull(),
-  documentName: varchar("document_name", { length: 255 }).notNull(),
-  allowedExtensions: varchar("allowed_extensions", { length: 100 }).notNull(),
-  maxSizeMb: integer("max_size_mb").notNull(),
-  isMandatory: boolean("is_mandatory").default(true).notNull(),
+// ----------------------------------------------------------------------
+// 3. TEAMS (The Core Table) [Source 164]
+// ----------------------------------------------------------------------
+export const teams = pgTable('teams', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').notNull(), // Links to Supabase auth.users (No FK constraint possible across schemas usually)
+  
+  teamName: text('team_name').notNull().unique(), // Source 136: "Team Name that already exists... warning"
+  leaderName: text('leader_name').notNull(),
+  university: text('university').notNull(),
+  leaderMajor: text('leader_major').notNull(),
+  
+  category: categoryEnum('category').notNull(),
+  status: statusEnum('status').default('Registered').notNull(),
+  
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
-// ==========================================
-// 3. ONBOARDING FUNNEL (PROFILE -> DOCS -> PAYMENT)
-// ==========================================
+// ----------------------------------------------------------------------
+// 4. MEMBERS
+// ----------------------------------------------------------------------
+export const members = pgTable('members', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
+  fullName: text('full_name').notNull(),
+  major: text('major').notNull(),
+});
+// NOTE: The "Max 2 Members" constraint is handled by a Database Trigger (BE-03), not schema definition.
 
-export const teamAccounts = pgTable("team_accounts", {
-  id: uuid("id").primaryKey().notNull(), // Maps to Supabase auth.users.id
-  competitionId: uuid("competition_id").references(() => competitions.id).notNull(),
-  currentStageId: uuid("current_stage_id").references(() => competitionStages.id),
+// ----------------------------------------------------------------------
+// 5. DOCUMENTS
+// ----------------------------------------------------------------------
+export const documents = pgTable('documents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
   
-  teamName: varchar("team_name", { length: 255 }).notNull(),
-  institution: varchar("institution", { length: 255 }).notNull(),
-  phoneNumber: varchar("phone_number", { length: 50 }).notNull(),
-  lineId: varchar("line_id", { length: 100 }).notNull(),
+  fileUrl: text('file_url').notNull(), // Path in Supabase Storage
+  isVerified: boolean('is_verified').default(false).notNull(),
+  verifiedAt: timestamp('verified_at'),
+  rejectionNote: text('rejection_note'), // "Reason if the document was rejected"
   
-  leadName: varchar("lead_name", { length: 255 }).notNull(),
-  leadMajor: varchar("lead_major", { length: 255 }).notNull(),
-  
-  m1Name: varchar("m1_name", { length: 255 }),
-  m1Major: varchar("m1_major", { length: 255 }),
-  
-  m2Name: varchar("m2_name", { length: 255 }),
-  m2Major: varchar("m2_major", { length: 255 }),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
-export const teamAdministration = pgTable("team_administration", {
-  teamId: uuid("team_id").primaryKey().references(() => teamAccounts.id).notNull(), // Enforces 1:1 relation
-  
-  leadKtm: text("lead_ktm").notNull(), // Cloudflare R2 URLs
-  m1Ktm: text("m1_ktm"),
-  m2Ktm: text("m2_ktm"),
-  twibbonProof: text("twibbon_proof").notNull(),
-  posterProof: text("poster_proof").notNull(),
-  
-  verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
-  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
-  rejectionNotes: text("rejection_notes"),
+// ----------------------------------------------------------------------
+// 6. PAYMENTS
+// ----------------------------------------------------------------------
+export const payments = pgTable('payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
+
+  orderId: text('order_id').notNull().unique(), // Sent to Midtrans
+  snapToken: text('snap_token'),
+  creationTime: timestamp('creation_time').defaultNow().notNull(),
+  expirationTime: timestamp('expiration_time').notNull(),
+  transactionStatus: transactionStatusEnum('transaction_status').default('pending').notNull(),
+  paymentType: text('payment_type'), // QRIS, VA, etc.
 });
 
-export const transactions = pgTable("transactions", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
+// ----------------------------------------------------------------------
+// 7. SUBMISSIONS
+// ----------------------------------------------------------------------
+export const submissions = pgTable('submissions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
   
-  orderId: varchar("order_id", { length: 255 }).notNull(), // For Midtrans webhook mapping
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  paymentType: varchar("payment_type", { length: 100 }).notNull(),
-  paymentProofUrl: text("payment_proof_url"), // Nullable for Midtrans auto-approvals
+  submissionUrl: text('submission_url').notNull(),
+  score: real('score'), // Float type
+  feedback: text('feedback'),
   
-  verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
-  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
-  rejectionNotes: text("rejection_notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
-// ==========================================
-// 4. SUBMISSIONS & GRADING
-// ==========================================
+// ----------------------------------------------------------------------
+// 8. RELATIONS (For easy querying)
+// ----------------------------------------------------------------------
+export const teamsRelations = relations(teams, ({ many }) => ({
+  members: many(members),
+  documents: many(documents),
+  payments: many(payments),
+  submissions: many(submissions),
+}));
 
-export const submissions = pgTable("submissions", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
-  requirementId: uuid("requirement_id").references(() => stageRequirements.id).notNull(),
-  
-  fileUrl: text("file_url").notNull(), // Cloudflare R2 URL
-  isValid: boolean("is_valid").default(false).notNull(),
-  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
-  submittedAt: timestamp("submitted_at").defaultNow().notNull(),
-});
+export const membersRelations = relations(members, ({ one }) => ({
+  team: one(teams, {
+    fields: [members.teamId],
+    references: [teams.id],
+  }),
+}));
 
-export const stageScores = pgTable("stage_scores", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
-  stageId: uuid("stage_id").references(() => competitionStages.id).notNull(),
-  
-  finalScore: doublePrecision("final_score").notNull(),
-  feedback: text("feedback"),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const documentsRelations = relations(documents, ({ one }) => ({
+  team: one(teams, {
+    fields: [documents.teamId],
+    references: [teams.id],
+  }),
+}));
 
-// ==========================================
-// 5. DECOUPLED CMS & ANALYTICS
-// ==========================================
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  team: one(teams, {
+    fields: [payments.teamId],
+    references: [teams.id],
+  }),
+}));
 
-export const events = pgTable("events", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  datetime: timestamp("datetime").notNull(),
-  location: varchar("location", { length: 255 }).notNull(),
-  speaker: varchar("speaker", { length: 255 }),
-  registrationLink: text("registration_link").notNull(),
-  
-  isPublished: boolean("is_published").default(false).notNull(),
-  authorId: uuid("author_id").references(() => committeeAccounts.id).notNull(),
-  
-  registeredCount: integer("registered_count").default(0).notNull(),
-  attendedCount: integer("attended_count").default(0).notNull(),
-});
-
-export const announcements = pgTable("announcements", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  authorId: uuid("author_id").references(() => committeeAccounts.id).notNull(),
-  
-  title: varchar("title", { length: 255 }).notNull(),
-  content: text("content").notNull(),
-  targetAudience: audienceEnum("target_audience").notNull(),
-  attachmentUrl: text("attachment_url"),
-  
-  scheduledFor: timestamp("scheduled_for"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const submissionsRelations = relations(submissions, ({ one }) => ({
+  team: one(teams, {
+    fields: [submissions.teamId],
+    references: [teams.id],
+  }),
+}));
