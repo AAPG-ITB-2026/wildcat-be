@@ -57,7 +57,6 @@ vi.mock('../db/index.js', () => ({
 
       const chain = {
         from: (table: { _?: { name?: string }; [k: string | symbol]: unknown }) => {
-          // Drizzle stores the table name on table[Symbol.for('drizzle:Name')].
           const drizzleName = table[Symbol.for('drizzle:Name')];
           const name = typeof drizzleName === 'string' ? drizzleName : (table._?.name ?? '');
           _table = name === 'payments' ? 'payments' : 'teams';
