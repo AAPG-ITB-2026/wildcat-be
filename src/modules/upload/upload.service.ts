@@ -38,7 +38,7 @@ export async function confirmDocumentUpload(
     input: ConfirmUploadInput,
     deps: UploadServiceDeps,
 ): Promise<ConfirmUploadResult> {
-    const { storage, documents, teams } = deps;
+    const { storage, administration, teams } = deps;
     const { teamId, documentType, filePath } = input;
 
     const team = await teams.findById(teamId);
@@ -72,8 +72,8 @@ export async function confirmDocumentUpload(
 
     const fileUrl = storage.getPublicUrl(filePath);
 
-    const document = await documents.insert({ teamId, fileUrl, isVerified: false });
-    return { document };
+    const record = await administration.upsertField(teamId, documentType, fileUrl);
+    return { administration: record };
 }
 
 export function buildStoragePath(

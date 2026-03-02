@@ -7,24 +7,37 @@ import { generateSignedUploadUrl, confirmDocumentUpload } from './upload.service
 import { UploadError } from './upload.errors.js';
 import type { UploadServiceDeps } from './upload.types.js';
 import { createR2Storage } from './adapters/r2-storage.adapter.js';
-import { createDrizzleDocumentRepo } from './adapters/drizzle-document.adapter.js';
+import { createDrizzleAdministrationRepo } from './adapters/drizzle-administration.adapter.js';
 import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
 import { createDb } from '../../db/index.js';
 import type { Env } from '../../types/index.js';
 
 const upload = new Hono<{ Bindings: Env }>();
 
-function buildDeps(env: Env): UploadServiceDeps {
-    const db = createDb(env);
-    return {
-        storage: createR2Storage({
+let cachedStorage: ReturnType<typeof createR2Storage> | null = null;
+let cachedStorageKey: string | null = null;
+
+function getStorage(env: Env) {
+    const storageKey = `${env.R2_ACCOUNT_ID}:${env.R2_BUCKET_NAME}:${env.R2_PUBLIC_URL}`;
+    if (!cachedStorage || cachedStorageKey !== storageKey) {
+        cachedStorage = createR2Storage({
             accountId: env.R2_ACCOUNT_ID,
             accessKeyId: env.R2_ACCESS_KEY_ID,
             secretAccessKey: env.R2_SECRET_ACCESS_KEY,
             bucketName: env.R2_BUCKET_NAME,
             publicUrl: env.R2_PUBLIC_URL,
-        }),
-        documents: createDrizzleDocumentRepo(db),
+        });
+        cachedStorageKey = storageKey;
+    }
+
+    return cachedStorage;
+}
+
+function buildDeps(env: Env): UploadServiceDeps {
+    const db = createDb(env);
+    return {
+        storage: getStorage(env),
+        administration: createDrizzleAdministrationRepo(db),
         teams: createDrizzleTeamRepo(db),
     };
 }

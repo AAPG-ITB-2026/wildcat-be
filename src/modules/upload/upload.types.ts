@@ -1,3 +1,5 @@
+import type { DocumentType } from './upload.schema.js';
+
 export interface StorageResult<T> {
     data: T | null;
     error: Error | null;
@@ -21,20 +23,22 @@ export interface StorageClient {
     getPublicUrl(path: string): string;
 }
 
-export interface DocumentRecord {
-    id: string;
+export interface AdministrationRecord {
     teamId: string;
-    fileUrl: string;
-    isVerified: boolean;
-    createdAt: Date | null;
+    leadKtm: string | null;
+    m1Ktm: string | null;
+    m2Ktm: string | null;
+    twibbonProof: string | null;
+    posterProof: string | null;
+    verificationStatus: 'Pending' | 'Verified' | 'Rejected';
 }
 
-export interface DocumentRepository {
-    insert(data: {
-        teamId: string;
-        fileUrl: string;
-        isVerified: boolean;
-    }): Promise<DocumentRecord>;
+export interface AdministrationRepository {
+    upsertField(
+        teamId: string,
+        field: DocumentType,
+        fileUrl: string,
+    ): Promise<AdministrationRecord>;
 }
 
 export interface TeamRepository {
@@ -43,7 +47,7 @@ export interface TeamRepository {
 
 export interface UploadServiceDeps {
     storage: StorageClient;
-    documents: DocumentRepository;
+    administration: AdministrationRepository;
     teams: TeamRepository;
 }
 
@@ -53,5 +57,5 @@ export interface SignedUploadResult {
 }
 
 export interface ConfirmUploadResult {
-    document: DocumentRecord;
+    administration: AdministrationRecord;
 }

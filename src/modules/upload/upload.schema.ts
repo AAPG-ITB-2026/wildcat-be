@@ -7,8 +7,15 @@ export const ALLOWED_CONTENT_TYPES = [
     'application/pdf',
 ] as const;
 
-export const DOCUMENT_TYPES = ['ktm', 'instagram_follow', 'twibbon'] as const;
+export const DOCUMENT_TYPES = [
+    'lead_ktm',
+    'm1_ktm',
+    'm2_ktm',
+    'twibbon_proof',
+    'poster_proof',
+] as const;
 
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
 const teamIdField = z
     .string()
