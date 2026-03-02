@@ -11,6 +11,11 @@ export const insertTeamSchema = createInsertSchema(teams, {
     createdAt: true,
     updatedAt: true,
     status: true,
+}).extend({
+    additionalMembers: z.array(z.object({
+        fullName: z.string().min(2),
+        major: z.string().min(2),
+    })).min(0).max(2).optional().default([]),
 })
 
 // TODO: clarify - can leaders change?
