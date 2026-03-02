@@ -1,14 +1,19 @@
 import type { Context } from "hono";
 import { insertTeamSchema, selectTeamSchema, updateTeamSchema } from "./teams.schema.js";
 import { createTeam, getAllTeams, getTeamById, updateTeam } from "./teams.service.js";
+import { createDb } from "../../db/index.js";
+import type { Env, Variables } from "../../types/index.js";
 import z from "zod";
 
-export const handleCreateTeam = async (c: Context) => {
+type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
+
+export const handleCreateTeam = async (c: AppContext) => {
     try {
+        const db = createDb(c.env);
         const data = await c.req.json()
         const parsedData = insertTeamSchema.parse(data)
 
-        const insertedTeam = await createTeam(parsedData);
+        const insertedTeam = await createTeam(db, parsedData);
 
         return c.json({ success: true, data: insertedTeam }, 201)
     } catch (error: any) {
@@ -38,13 +43,14 @@ export const handleCreateTeam = async (c: Context) => {
 }
 
 // TODO: clarif: why must leader names and major be in teams table? this causes some problems
-export const handleUpdateTeam = async (c: Context) => {
+export const handleUpdateTeam = async (c: AppContext) => {
     try{
+        const db = createDb(c.env);
         const id = c.req.param('id')
         const data = await c.req.json()
         const parsedData = updateTeamSchema.parse(data)
 
-        const updatedTeam = await updateTeam(parsedData, id)
+        const updatedTeam = await updateTeam(db, parsedData, id)
         return c.json({success: true, data: updatedTeam}, 202)
         
     } catch (error: any){
@@ -53,9 +59,10 @@ export const handleUpdateTeam = async (c: Context) => {
     
 }
 
-export const handleGetAllTeams = async (c: Context) => {
+export const handleGetAllTeams = async (c: AppContext) => {
     try {
-        const data = await getAllTeams()
+        const db = createDb(c.env);
+        const data = await getAllTeams(db)
         const parsedData = z.array(selectTeamSchema).parse((data))
         return c.json({ data: parsedData })
     } catch (error: any) {
@@ -64,10 +71,11 @@ export const handleGetAllTeams = async (c: Context) => {
     }
 }
 
-export const handleGetTeamById = async (c: Context) => {
+export const handleGetTeamById = async (c: AppContext) => {
     try {
+        const db = createDb(c.env);
         const teamId = c.req.param('id')
-        const data = await getTeamById(teamId)
+        const data = await getTeamById(db, teamId)
 
         const parsedData = z.array(selectTeamSchema).parse((data))
         return c.json({ data: parsedData[0] })

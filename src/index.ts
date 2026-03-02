@@ -5,9 +5,7 @@ import landing from './modules/landing/landing.route';
 import teamsRoute from './modules/teams/teams.route.js';
 import membersRoute from './modules/members/members.route.js';
 import { authMiddleware } from './middlewares/auth';
-import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
-import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
