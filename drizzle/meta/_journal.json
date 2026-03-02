@@ -15,6 +15,13 @@
       "when": 1771858994657,
       "tag": "0001_awesome_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772433687227,
+      "tag": "0002_groovy_black_cat",
+      "breakpoints": true
     }
   ]
 }
