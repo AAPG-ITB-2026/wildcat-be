@@ -7,6 +7,7 @@ import membersRoute from './modules/members/members.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 // import admin from './modules/admin/admin.route.js';
 import type { Env, Variables } from './types/index.js';
+import eventsRoute from './modules/events/events.route.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -29,6 +30,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 // app.route('/api/landing', landing);
 app.route('/api/teams', teamsRoute);
 app.route('/api/members', membersRoute);
+app.route('/api/events', eventsRoute);
 // TODO: add trailing slash middleware?
 // app.route('/api/admin', admin);
 
