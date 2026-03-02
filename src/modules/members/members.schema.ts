@@ -1,17 +1,19 @@
 
-import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
-import { members } from '../../db/schema.js';
 import { z } from 'zod';
 
-export const insertMemberSchema = createInsertSchema(members).omit({
-    id: true,
-    teamId: true // TODO: omit as it will be passed in url params
+export const memberSlotSchema = z.enum(['m1', 'm2']);
+export type MemberSlot = z.infer<typeof memberSlotSchema>;
+
+export const insertMemberSchema = z.object({
+    fullName: z.string().min(2),
+    major: z.string().min(2),
 });
 
 export const updateMemberSchema = insertMemberSchema.partial();
 
-export const selectMemberSchema = createSelectSchema(members);
-
-export const publicMemberSchema = selectMemberSchema.omit({
-    id: true,
+// TODO: ensure frontend uses the slots data in the page correctly
+export const selectMemberSchema = z.object({
+    slot: z.enum(['lead', 'm1', 'm2']),
+    fullName: z.string(),
+    major: z.string(),
 });

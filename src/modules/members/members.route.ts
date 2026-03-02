@@ -1,33 +1,30 @@
 import { Hono } from 'hono';
-import { handleUpdateMember as handleUpdateMember, handleGetMember } from './members.controller.js';
+import { handleAddMember, handleGetAllTeamMembers, handleUpdateMember, handleDeleteMember } from './members.controller.js';
 import type { Env, Variables } from '../../types/index.js';
 
 /*
- * GET    /api/members/:id
- *   Returns a single member by their member ID.
+ * Members Routes — base: /api/members
  *
- * PATCH  /api/members/:id
- *   Partially update a member's info.
+ * POST   /api/members/:teamId
+ *   Add a member to an existing team (fills the first free m1 or m2 slot).
+ *   Body: { fullName, major }
+ *
+ * GET    /api/members/:teamId
+ *   Returns all members for a team (lead + m1 + m2 if set).
+ *
+ * PATCH  /api/members/:teamId/:slot
+ *   Update a member slot (slot = m1 | m2).
  *   Body: any subset of { fullName, major }
  *
- * DELETE /api/members/:id
- *   Remove a member from their team.
- *
- * -- Member creation and team-scoped listing are under /api/teams/:id/members (see teams.route.ts),
- *  This is because it requires teamID
+ * DELETE /api/members/:teamId/:slot
+ *   Remove a member from a slot (slot = m1 | m2). Lead cannot be deleted.
  */
 
 const membersRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-membersRoute.get('/', (c) => {
-  return c.json({
-    message: "Members endpoint is working",
-    timestamp: new Date().toISOString(),
-    debug: true
-  });
-});
-membersRoute.get('/:id', handleGetMember)
-membersRoute.patch('/:id', handleUpdateMember)
-membersRoute.delete('/:id', handleUpdateMember)
+membersRoute.post('/:teamId', handleAddMember)
+membersRoute.get('/:teamId', handleGetAllTeamMembers)
+membersRoute.patch('/:teamId/:slot', handleUpdateMember)
+membersRoute.delete('/:teamId/:slot', handleDeleteMember)
 
 export default membersRoute

@@ -1,72 +1,71 @@
 import { type createDb } from "../../db/index.js";
-import { eq, count } from "drizzle-orm";
-import { teams, members } from "../../db/schema.js";
-import { type InferSelectModel } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { teamAccounts } from "../../db/schema.js";
+import type { MemberSlot } from "./members.schema.js";
 
 type Db = ReturnType<typeof createDb>;
 
-// TODO: handle errors for addMember
-export const addMember = async (db: Db, memberData: any, teamId: string) => {
-    try {
-        
-        // TODO: decide between this or parsing db trigger error message instead
-        const [{ count: memberCount }] = await db.select({ count: count() })
-            .from(members).where(eq(members.teamId, teamId));
-        if (memberCount >= 3) {
-            throw new Error('MEMBER_LIMIT_REACHED');
-        }
+type MemberData = { fullName: string; major: string };
+type MemberRecord = { slot: 'lead' | 'm1' | 'm2'; fullName: string; major: string };
 
-        const [insertedMember] = await db.insert(members).values({
-            teamId: teamId,
-            fullName: memberData.fullName,
-            major: memberData.major,
-        }).returning()
+export const addMember = async (db: Db, memberData: MemberData, teamId: string) => {
+    const [team] = await db.select().from(teamAccounts).where(eq(teamAccounts.id, teamId)).limit(1);
+    if (!team) throw new Error('TEAM_NOT_FOUND');
 
-        return insertedMember;
-    } catch (error: any) {
-        throw error
+    let slot: MemberSlot;
+    let update: Record<string, string>;
+
+    if (!team.m1Name && !team.m1Major) {
+        slot = 'm1';
+        update = { m1Name: memberData.fullName, m1Major: memberData.major };
+    } else if (!team.m2Name && !team.m2Major) {
+        slot = 'm2';
+        update = { m2Name: memberData.fullName, m2Major: memberData.major };
+    } else {
+        throw new Error('MEMBER_LIMIT_REACHED');
     }
+
+    await db.update(teamAccounts).set(update).where(eq(teamAccounts.id, teamId));
+
+    return { slot, fullName: memberData.fullName, major: memberData.major };
 }
 
+export const updateMember = async (db: Db, updates: Partial<MemberData>, teamId: string, slot: MemberSlot) => {
+    const update: Record<string, string> = {};
+    if (updates.fullName !== undefined) update[`${slot}Name`] = updates.fullName;
+    if (updates.major !== undefined) update[`${slot}Major`] = updates.major;
 
-export const updateMember = async (db: Db, updates: Partial<InferSelectModel<typeof members>>, id: string) => {
-    try {
-        const [updatedMember] = await db.update(members)
-            .set(updates)
-            .where(eq(members.id, id))
-            .returning();
+    const [updatedTeam] = await db.update(teamAccounts)
+        .set(update)
+        .where(eq(teamAccounts.id, teamId))
+        .returning();
 
-        return updatedMember;
-    } catch (error: any) {
-        throw error
-    }
+    return {
+        slot,
+        fullName: slot === 'm1' ? updatedTeam.m1Name! : updatedTeam.m2Name!,
+        major: slot === 'm1' ? updatedTeam.m1Major! : updatedTeam.m2Major!,
+    };
 }
 
+export const getAllTeamMembers = async (db: Db, teamId: string): Promise<MemberRecord[]> => {
+    const [team] = await db.select().from(teamAccounts).where(eq(teamAccounts.id, teamId)).limit(1);
+    if (!team) throw new Error('TEAM_NOT_FOUND');
 
-export const getAllTeamMembers = async (db: Db, teamId: string) => {
-    try {
-        const membersResult = await db.select().from(members).where(eq(members.teamId, teamId))
-        return membersResult
-    } catch (error: any) {
+    const members: MemberRecord[] = [
+        { slot: 'lead', fullName: team.leadName, major: team.leadMajor },
+    ];
+    if (team.m1Name && team.m1Major) members.push({ slot: 'm1', fullName: team.m1Name, major: team.m1Major });
+    if (team.m2Name && team.m2Major) members.push({ slot: 'm2', fullName: team.m2Name, major: team.m2Major });
 
-    }
+    return members;
 }
 
+export const deleteMember = async (db: Db, teamId: string, slot: MemberSlot) => {
+    const update = slot === 'm1'
+        ? { m1Name: null, m1Major: null }
+        : { m2Name: null, m2Major: null };
 
-export const getMemberById = async (db: Db, id: string) => {
-    try {
-        const member = await db.select().from(members).where(eq(members.id, id)).limit(1)
-        return member
-    } catch (error: any) {
+    await db.update(teamAccounts).set(update).where(eq(teamAccounts.id, teamId));
 
-    }
-}
-
-export const deleteMember = async (db: Db, id: string) => {
-    try {
-        const [deletedMember] = await db.delete(members).where(eq(members.id, id)).returning();
-        return deletedMember
-    } catch (error: any){
-        throw error
-    }
+    return { slot, deleted: true };
 }
