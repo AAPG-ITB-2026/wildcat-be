@@ -1,9 +1,7 @@
 export type AssetErrorCode =
-    | 'TEAM_NOT_FOUND'
-    | 'NOT_REGISTERED'
-    | 'ASSET_NOT_FOUND'
-    | 'SIGNED_URL_FAILED'
-    | 'INVALID_FILENAME';
+    | 'INVALID_COMPETITION_ID'
+    | 'COMPETITION_NOT_FOUND'
+    | 'GUIDEBOOK_NOT_AVAILABLE';
 
 export class AssetError extends Error {
     public readonly code: AssetErrorCode;
