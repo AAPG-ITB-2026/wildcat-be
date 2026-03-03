@@ -61,6 +61,9 @@ export const getAllTeamMembers = async (db: Db, teamId: string): Promise<MemberR
 }
 
 export const deleteMember = async (db: Db, teamId: string, slot: MemberSlot) => {
+    const [team] = await db.select().from(teamAccounts).where(eq(teamAccounts.id, teamId)).limit(1);
+    if (!team) throw new Error('TEAM_NOT_FOUND');
+
     const update = slot === 'm1'
         ? { m1Name: null, m1Major: null }
         : { m2Name: null, m2Major: null };
