@@ -176,3 +176,21 @@ export const announcements = pgTable("announcements", {
     scheduledFor: timestamp("scheduled_for"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ==========================================
+// APP CONFIG
+// ==========================================
+export const appConfig = pgTable("app_config", {
+    key: varchar("key", { length: 100 }).primaryKey().notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONTENT
+// ==========================================
+export const appContent = pgTable("app_content", {
+    section: varchar("section", { length: 100 }).primaryKey().notNull(),
+    content: text("content").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
