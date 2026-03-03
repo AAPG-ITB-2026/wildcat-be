@@ -1,265 +1,119 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import {
-    getRestrictedAsset,
-    validateFileName,
-    buildAssetPath,
+    getGuidebookUrl,
+    validateCompetitionId,
 } from '../assets.service.js';
 import { AssetError } from '../assets.errors.js';
 import type { AssetServiceDeps } from '../assets.types.js';
 
-function createMockDeps(overrides?: Partial<AssetServiceDeps>): AssetServiceDeps {
-    return {
-        storage: {
-            createSignedDownloadUrl: vi.fn().mockResolvedValue({
-                data: { signedUrl: 'https://r2.example.com/signed-download' },
-                error: null,
-            }),
-        },
-        teams: {
-            findByUserId: vi.fn().mockResolvedValue({
-                id: 'test-team-id',
-                status: 'Registered',
-            }),
-        },
-        ...overrides,
-    };
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
+/**
+ * Builds a mock `AssetServiceDeps` where `db` is a chainable drizzle mock.
+ * `resolvedRows` is the array returned by the final `.limit()` call.
+ */
+function createMockDeps(resolvedRows: unknown[] = []): AssetServiceDeps {
+    const limit = vi.fn().mockResolvedValue(resolvedRows);
+    const where = vi.fn().mockReturnValue({ limit });
+    const from = vi.fn().mockReturnValue({ where });
+    const select = vi.fn().mockReturnValue({ from });
+
+    return { db: { select } as unknown as AssetServiceDeps['db'] };
 }
 
-describe('validateFileName', () => {
-    it('should accept a valid filename', () => {
-        expect(() => validateFileName('guidebook-2026.pdf')).not.toThrow();
+// ---------------------------------------------------------------------------
+// validateCompetitionId
+// ---------------------------------------------------------------------------
+
+describe('validateCompetitionId', () => {
+    it('should accept a valid UUID v4', () => {
+        expect(() => validateCompetitionId(VALID_UUID)).not.toThrow();
     });
 
-    it('should accept filenames with underscores', () => {
-        expect(() => validateFileName('template_v2.docx')).not.toThrow();
-    });
-
-    it('should reject empty filenames', () => {
-        expect(() => validateFileName('')).toThrow(AssetError);
-        try {
-            validateFileName('');
-        } catch (err) {
-            expect((err as AssetError).code).toBe('INVALID_FILENAME');
+    it('should reject an empty string', () => {
+        expect(() => validateCompetitionId('')).toThrow(AssetError);
+        try { validateCompetitionId(''); } catch (err) {
+            expect((err as AssetError).code).toBe('INVALID_COMPETITION_ID');
         }
     });
 
-    it('should reject filenames with path traversal (..)', () => {
-        expect(() => validateFileName('../etc/passwd')).toThrow(AssetError);
-        try {
-            validateFileName('../etc/passwd');
-        } catch (err) {
-            expect((err as AssetError).code).toBe('INVALID_FILENAME');
-        }
+    it('should reject a non-UUID string', () => {
+        expect(() => validateCompetitionId('not-a-uuid')).toThrow(AssetError);
     });
 
-    it('should reject filenames with forward slashes', () => {
-        expect(() => validateFileName('path/to/file.pdf')).toThrow(AssetError);
-    });
-
-    it('should reject filenames with backslashes', () => {
-        expect(() => validateFileName('path\\to\\file.pdf')).toThrow(AssetError);
-    });
-
-    it('should reject filenames with special characters', () => {
-        expect(() => validateFileName('file@name.pdf')).toThrow(AssetError);
-        expect(() => validateFileName('file name.pdf')).toThrow(AssetError);
-        expect(() => validateFileName('file#1.pdf')).toThrow(AssetError);
+    it('should reject a UUID missing segments', () => {
+        expect(() => validateCompetitionId('550e8400-e29b-41d4-a716')).toThrow(AssetError);
     });
 });
 
-describe('buildAssetPath', () => {
-    it('should prefix the filename with "assets/"', () => {
-        expect(buildAssetPath('guidebook.pdf')).toBe('assets/guidebook.pdf');
-    });
-});
+// ---------------------------------------------------------------------------
+// getGuidebookUrl
+// ---------------------------------------------------------------------------
 
-describe('getRestrictedAsset', () => {
-    it('should return a signed URL for a valid registered user and valid file', async () => {
-        const deps = createMockDeps();
+describe('getGuidebookUrl', () => {
+    it('should return guidebook data for a valid competition with a guidebook', async () => {
+        const deps = createMockDeps([
+            { id: VALID_UUID, name: 'Paper & Poster', guidebookUrl: 'https://r2.example.com/guidebook.pdf' },
+        ]);
 
-        const result = await getRestrictedAsset('user-1', 'guidebook-2026.pdf', deps);
+        const result = await getGuidebookUrl(VALID_UUID, deps);
 
         expect(result).toEqual({
-            signedUrl: 'https://r2.example.com/signed-download',
-            fileName: 'guidebook-2026.pdf',
-            expiresIn: 600,
+            competitionId: VALID_UUID,
+            competitionName: 'Paper & Poster',
+            guidebookUrl: 'https://r2.example.com/guidebook.pdf',
         });
-        expect(deps.storage.createSignedDownloadUrl).toHaveBeenCalledWith(
-            'assets/guidebook-2026.pdf',
-            600,
-        );
     });
 
-    it('should allow access for Document_Verified status', async () => {
-        const deps = createMockDeps({
-            teams: {
-                findByUserId: vi.fn().mockResolvedValue({
-                    id: 'team-2',
-                    status: 'Document_Verified',
-                }),
-            },
-        });
-
-        const result = await getRestrictedAsset('user-2', 'template.zip', deps);
-        expect(result.signedUrl).toBeDefined();
-    });
-
-    it('should allow access for Paid status', async () => {
-        const deps = createMockDeps({
-            teams: {
-                findByUserId: vi.fn().mockResolvedValue({
-                    id: 'team-3',
-                    status: 'Paid',
-                }),
-            },
-        });
-
-        const result = await getRestrictedAsset('user-3', 'template.zip', deps);
-        expect(result.signedUrl).toBeDefined();
-    });
-
-    it('should throw TEAM_NOT_FOUND when no team exists for the user', async () => {
-        const deps = createMockDeps({
-            teams: { findByUserId: vi.fn().mockResolvedValue(null) },
-        });
-
-        await expect(
-            getRestrictedAsset('orphan-user', 'guidebook.pdf', deps),
-        ).rejects.toThrow(AssetError);
-
-        try {
-            await getRestrictedAsset('orphan-user', 'guidebook.pdf', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('TEAM_NOT_FOUND');
-        }
-    });
-
-    it('should throw NOT_REGISTERED when team status is not allowed', async () => {
-        const deps = createMockDeps({
-            teams: {
-                findByUserId: vi.fn().mockResolvedValue({
-                    id: 'team-4',
-                    status: 'Pending',
-                }),
-            },
-        });
-
-        await expect(
-            getRestrictedAsset('user-4', 'guidebook.pdf', deps),
-        ).rejects.toThrow(AssetError);
-
-        try {
-            await getRestrictedAsset('user-4', 'guidebook.pdf', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('NOT_REGISTERED');
-        }
-    });
-
-    it('should throw NOT_REGISTERED for empty status string', async () => {
-        const deps = createMockDeps({
-            teams: {
-                findByUserId: vi.fn().mockResolvedValue({
-                    id: 'team-5',
-                    status: '',
-                }),
-            },
-        });
-
-        await expect(
-            getRestrictedAsset('user-5', 'guidebook.pdf', deps),
-        ).rejects.toThrow(AssetError);
-
-        try {
-            await getRestrictedAsset('user-5', 'guidebook.pdf', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('NOT_REGISTERED');
-        }
-    });
-
-    it('should throw INVALID_FILENAME for path-traversal filenames', async () => {
+    it('should throw INVALID_COMPETITION_ID for a bad UUID before touching DB', async () => {
         const deps = createMockDeps();
 
-        await expect(
-            getRestrictedAsset('user-1', '../etc/passwd', deps),
-        ).rejects.toThrow(AssetError);
+        await expect(getGuidebookUrl('bad-id', deps)).rejects.toThrow(AssetError);
 
-        try {
-            await getRestrictedAsset('user-1', '../etc/passwd', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('INVALID_FILENAME');
+        try { await getGuidebookUrl('bad-id', deps); } catch (err) {
+            expect((err as AssetError).code).toBe('INVALID_COMPETITION_ID');
+        }
+
+        // DB should never be called
+        expect(deps.db.select).not.toHaveBeenCalled();
+    });
+
+    it('should throw COMPETITION_NOT_FOUND when no row is returned', async () => {
+        const deps = createMockDeps([]); // empty result
+
+        await expect(getGuidebookUrl(VALID_UUID, deps)).rejects.toThrow(AssetError);
+
+        try { await getGuidebookUrl(VALID_UUID, deps); } catch (err) {
+            expect((err as AssetError).code).toBe('COMPETITION_NOT_FOUND');
         }
     });
 
-    it('should throw INVALID_FILENAME for filenames with slashes', async () => {
-        const deps = createMockDeps();
+    it('should throw GUIDEBOOK_NOT_AVAILABLE when guidebookUrl is null', async () => {
+        const deps = createMockDeps([
+            { id: VALID_UUID, name: 'BCC', guidebookUrl: null },
+        ]);
 
-        await expect(
-            getRestrictedAsset('user-1', 'subdir/secret.pdf', deps),
-        ).rejects.toThrow(AssetError);
-    });
+        await expect(getGuidebookUrl(VALID_UUID, deps)).rejects.toThrow(AssetError);
 
-    it('should throw SIGNED_URL_FAILED when storage returns a generic error', async () => {
-        const deps = createMockDeps({
-            storage: {
-                createSignedDownloadUrl: vi.fn().mockResolvedValue({
-                    data: null,
-                    error: new Error('R2 connection timeout'),
-                }),
-            },
-        });
-
-        await expect(
-            getRestrictedAsset('user-1', 'guidebook.pdf', deps),
-        ).rejects.toThrow(AssetError);
-
-        try {
-            await getRestrictedAsset('user-1', 'guidebook.pdf', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('SIGNED_URL_FAILED');
+        try { await getGuidebookUrl(VALID_UUID, deps); } catch (err) {
+            expect((err as AssetError).code).toBe('GUIDEBOOK_NOT_AVAILABLE');
         }
     });
 
-    it('should throw ASSET_NOT_FOUND when storage error indicates missing file', async () => {
-        const deps = createMockDeps({
-            storage: {
-                createSignedDownloadUrl: vi.fn().mockResolvedValue({
-                    data: null,
-                    error: new Error('NoSuchKey: The specified key does not exist'),
-                }),
-            },
-        });
+    it('should throw GUIDEBOOK_NOT_AVAILABLE when guidebookUrl is empty string', async () => {
+        const deps = createMockDeps([
+            { id: VALID_UUID, name: 'GnG', guidebookUrl: '' },
+        ]);
 
-        await expect(
-            getRestrictedAsset('user-1', 'missing-file.pdf', deps),
-        ).rejects.toThrow(AssetError);
+        await expect(getGuidebookUrl(VALID_UUID, deps)).rejects.toThrow(AssetError);
 
-        try {
-            await getRestrictedAsset('user-1', 'missing-file.pdf', deps);
-        } catch (err) {
-            expect((err as AssetError).code).toBe('ASSET_NOT_FOUND');
+        try { await getGuidebookUrl(VALID_UUID, deps); } catch (err) {
+            expect((err as AssetError).code).toBe('GUIDEBOOK_NOT_AVAILABLE');
         }
-    });
-
-    it('should not call storage if filename validation fails', async () => {
-        const deps = createMockDeps();
-
-        await expect(
-            getRestrictedAsset('user-1', '../bad-path', deps),
-        ).rejects.toThrow();
-
-        expect(deps.storage.createSignedDownloadUrl).not.toHaveBeenCalled();
-    });
-
-    it('should not call storage if team lookup fails', async () => {
-        const deps = createMockDeps({
-            teams: { findByUserId: vi.fn().mockResolvedValue(null) },
-        });
-
-        await expect(
-            getRestrictedAsset('user-1', 'guidebook.pdf', deps),
-        ).rejects.toThrow();
-
-        expect(deps.storage.createSignedDownloadUrl).not.toHaveBeenCalled();
     });
 });

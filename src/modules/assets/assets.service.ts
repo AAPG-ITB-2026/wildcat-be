@@ -1,73 +1,53 @@
-import type { AssetServiceDeps, AssetDownloadResult } from './assets.types.js';
+import { eq } from 'drizzle-orm';
+
+import type { AssetServiceDeps, GuidebookResult } from './assets.types.js';
 import { AssetError } from './assets.errors.js';
+import { competitions } from '../../db/schema.js';
 
-const ALLOWED_STATUSES: ReadonlySet<string> = new Set([
-    'Registered',
-    'Document_Verified',
-    'Paid',
-]);
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const DEFAULT_EXPIRES_IN = 600;
-
-const ASSET_PREFIX = 'assets';
-
-export async function getRestrictedAsset(
-    userId: string,
-    fileName: string,
-    deps: AssetServiceDeps,
-): Promise<AssetDownloadResult> {
-    validateFileName(fileName);
-
-    const team = await deps.teams.findByUserId(userId);
-    if (!team) {
-        throw new AssetError('TEAM_NOT_FOUND', 'No team found for the current user');
-    }
-
-    if (!ALLOWED_STATUSES.has(team.status)) {
+export function validateCompetitionId(id: string): void {
+    if (!UUID_REGEX.test(id)) {
         throw new AssetError(
-            'NOT_REGISTERED',
-            `Team status "${team.status}" does not permit asset access`,
+            'INVALID_COMPETITION_ID',
+            `"${id}" is not a valid competition ID`,
+        );
+    }
+}
+
+export async function getGuidebookUrl(
+    competitionId: string,
+    deps: AssetServiceDeps,
+): Promise<GuidebookResult> {
+    validateCompetitionId(competitionId);
+
+    const [row] = await deps.db
+        .select({
+            id: competitions.id,
+            name: competitions.name,
+            guidebookUrl: competitions.guidebookUrl,
+        })
+        .from(competitions)
+        .where(eq(competitions.id, competitionId))
+        .limit(1);
+
+    if (!row) {
+        throw new AssetError(
+            'COMPETITION_NOT_FOUND',
+            `Competition "${competitionId}" not found`,
         );
     }
 
-    const storagePath = buildAssetPath(fileName);
-    const expiresIn = DEFAULT_EXPIRES_IN;
-
-    const { data, error } = await deps.storage.createSignedDownloadUrl(storagePath, expiresIn);
-
-    if (error || !data) {
-        const message = error?.message ?? 'unknown error';
-        const isNotFound = message.toLowerCase().includes('not found')
-            || message.toLowerCase().includes('nosuchkey')
-            || message.toLowerCase().includes('404');
-
+    if (!row.guidebookUrl) {
         throw new AssetError(
-            isNotFound ? 'ASSET_NOT_FOUND' : 'SIGNED_URL_FAILED',
-            `Failed to generate download URL: ${message}`,
+            'GUIDEBOOK_NOT_AVAILABLE',
+            `Guidebook is not yet available for competition "${row.name}"`,
         );
     }
 
     return {
-        signedUrl: data.signedUrl,
-        fileName,
-        expiresIn,
+        competitionId: row.id,
+        competitionName: row.name,
+        guidebookUrl: row.guidebookUrl,
     };
-}
-
-export function buildAssetPath(fileName: string): string {
-    return `${ASSET_PREFIX}/${fileName}`;
-}
-
-export function validateFileName(fileName: string): void {
-    if (!fileName || fileName.length === 0) {
-        throw new AssetError('INVALID_FILENAME', 'Filename must not be empty');
-    }
-
-    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
-        throw new AssetError('INVALID_FILENAME', 'Filename must not contain path traversal characters');
-    }
-
-    if (!/^[a-zA-Z0-9\-_.]+$/.test(fileName)) {
-        throw new AssetError('INVALID_FILENAME', 'Filename contains invalid characters');
-    }
 }
