@@ -5,7 +5,6 @@ import {
     HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomUUID } from 'node:crypto';
 import type { StorageClient, StorageResult } from '../upload.types.js';
 
 export interface R2StorageConfig {
@@ -38,8 +37,8 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
     return {
         async createSignedUploadUrl(
             path: string,
-            options?: { upsert?: boolean; contentType?: string },
-        ): Promise<StorageResult<{ signedUrl: string; path: string; token: string }>> {
+            options?: { contentType?: string },
+        ): Promise<StorageResult<{ signedUrl: string; path: string }>> {
             try {
                 const command = new PutObjectCommand({
                     Bucket: bucketName,
@@ -51,10 +50,8 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
                     expiresIn: signedUrlExpiresIn,
                 });
 
-                const token = randomUUID();
-
                 return {
-                    data: { signedUrl, path, token },
+                    data: { signedUrl, path },
                     error: null,
                 };
             } catch (err) {
@@ -129,4 +126,3 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
         },
     };
 }
-

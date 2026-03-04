@@ -18,7 +18,6 @@ export async function generateSignedUploadUrl(
     const storagePath = buildStoragePath(teamId, documentType, fileName);
 
     const { data, error } = await storage.createSignedUploadUrl(storagePath, {
-        upsert: true,
         contentType: input.contentType,
     });
 
@@ -32,7 +31,6 @@ export async function generateSignedUploadUrl(
     return {
         signedUrl: data.signedUrl,
         path: data.path,
-        token: data.token,
     };
 }
 
@@ -41,11 +39,16 @@ export async function confirmDocumentUpload(
     deps: UploadServiceDeps,
 ): Promise<ConfirmUploadResult> {
     const { storage, documents, teams } = deps;
-    const { teamId, filePath } = input;
+    const { teamId, documentType, filePath } = input;
 
     const team = await teams.findById(teamId);
     if (!team) {
         throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
+    }
+
+    const expectedPrefix = `${teamId}/${documentType}/`;
+    if (filePath.startsWith('/') || filePath.includes('..') || !filePath.startsWith(expectedPrefix)) {
+        throw new UploadError('INVALID_FILE_PATH', `filePath must start with "${expectedPrefix}"`);
     }
 
     // Verify the file exists in R2 and check its actual content-type

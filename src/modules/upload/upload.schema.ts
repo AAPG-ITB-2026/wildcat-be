@@ -38,13 +38,31 @@ export const signUploadSchema = z.object({
 
 
 
-export const confirmUploadSchema = z.object({
-    teamId: teamIdField,
-    documentType: documentTypeField,
-    filePath: z
-        .string()
-        .min(1, 'filePath is required'),
-});
+export const confirmUploadSchema = z
+    .object({
+        teamId: teamIdField,
+        documentType: documentTypeField,
+        filePath: z
+            .string()
+            .min(1, 'filePath is required'),
+    })
+    .superRefine(({ teamId, documentType, filePath }, ctx) => {
+        const expectedPrefix = `${teamId}/${documentType}/`;
+        if (!filePath.startsWith(expectedPrefix)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['filePath'],
+                message: `filePath must start with "${expectedPrefix}"`,
+            });
+        }
+        if (filePath.startsWith('/') || filePath.includes('..')) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['filePath'],
+                message: 'filePath must not contain path traversal segments',
+            });
+        }
+    });
 
 export type SignUploadInput = z.infer<typeof signUploadSchema>;
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;

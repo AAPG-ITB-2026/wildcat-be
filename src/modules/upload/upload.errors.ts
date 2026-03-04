@@ -2,6 +2,7 @@ export type UploadErrorCode =
     | 'TEAM_NOT_FOUND'
     | 'SIGNED_URL_FAILED'
     | 'FILE_NOT_FOUND'
+    | 'INVALID_FILE_PATH'
     | 'INVALID_CONTENT_TYPE'
     | 'DB_WRITE_FAILED';
 

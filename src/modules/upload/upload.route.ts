@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import { z } from 'zod';
 
 import { signUploadSchema, confirmUploadSchema } from './upload.schema.js';
 import { generateSignedUploadUrl, confirmDocumentUpload } from './upload.service.js';
@@ -12,17 +11,36 @@ import { createDb } from '../../db/index.js';
 import type { Env } from '../../types/index.js';
 
 const upload = new Hono<{ Bindings: Env }>();
+const storageCache = new Map<string, UploadServiceDeps['storage']>();
+
+function getStorage(env: Env): UploadServiceDeps['storage'] {
+    const key = [
+        env.R2_ACCOUNT_ID,
+        env.R2_ACCESS_KEY_ID,
+        env.R2_SECRET_ACCESS_KEY,
+        env.R2_BUCKET_NAME,
+        env.R2_PUBLIC_URL,
+    ].join('|');
+    const cached = storageCache.get(key);
+    if (cached) {
+        return cached;
+    }
+
+    const storage = createR2Storage({
+        accountId: env.R2_ACCOUNT_ID,
+        accessKeyId: env.R2_ACCESS_KEY_ID,
+        secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+        bucketName: env.R2_BUCKET_NAME,
+        publicUrl: env.R2_PUBLIC_URL,
+    });
+    storageCache.set(key, storage);
+    return storage;
+}
 
 function buildDeps(env: Env): UploadServiceDeps {
     const db = createDb(env);
     return {
-        storage: createR2Storage({
-            accountId: env.R2_ACCOUNT_ID,
-            accessKeyId: env.R2_ACCESS_KEY_ID,
-            secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-            bucketName: env.R2_BUCKET_NAME,
-            publicUrl: env.R2_PUBLIC_URL,
-        }),
+        storage: getStorage(env),
         documents: createDrizzleDocumentRepo(db),
         teams: createDrizzleTeamRepo(db),
     };
@@ -40,7 +58,7 @@ upload.post('/sign', async (c) => {
                     error: {
                         code: 'VALIDATION_ERROR',
                         message: 'Invalid request body',
-                        details: z.flattenError(parseResult.error).fieldErrors,
+                        details: parseResult.error.flatten().fieldErrors,
                     },
                 },
                 400,
@@ -67,7 +85,7 @@ upload.post('/confirm', async (c) => {
                     error: {
                         code: 'VALIDATION_ERROR',
                         message: 'Invalid request body',
-                        details: z.flattenError(parseResult.error).fieldErrors,
+                        details: parseResult.error.flatten().fieldErrors,
                     },
                 },
                 400,
@@ -86,6 +104,7 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     TEAM_NOT_FOUND: 404,
     SIGNED_URL_FAILED: 502,
     FILE_NOT_FOUND: 404,
+    INVALID_FILE_PATH: 422,
     INVALID_CONTENT_TYPE: 422,
     DB_WRITE_FAILED: 500,
 };
