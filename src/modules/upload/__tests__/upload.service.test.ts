@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -14,7 +13,7 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
     return {
         storage: {
             createSignedUploadUrl: vi.fn().mockResolvedValue({
-                data: { signedUrl: 'https://supabase.co/signed-url', path: 'test-path', token: 'test-token' },
+                data: { signedUrl: 'https://supabase.co/signed-url', path: 'test-path' },
                 error: null,
             }),
             listFiles: vi.fn().mockResolvedValue({
@@ -113,7 +112,6 @@ describe('generateSignedUploadUrl', () => {
 
         expect(result.signedUrl).toBeDefined();
         expect(result.path).toBeDefined();
-        expect(result.token).toBeDefined();
     });
 
     it('should throw TEAM_NOT_FOUND when team does not exist', async () => {
@@ -231,5 +229,18 @@ describe('confirmDocumentUpload', () => {
             expect(err).toBeInstanceOf(UploadError);
             expect((err as UploadError).code).toBe('INVALID_CONTENT_TYPE');
         }
+    });
+
+    it('should throw INVALID_FILE_PATH when path does not belong to team and document type', async () => {
+        const deps = createMockDeps();
+        const input = {
+            teamId: 'team-1',
+            documentType: 'ktm' as const,
+            filePath: 'team-2/ktm/123_ktm.jpg',
+        };
+
+        await expect(confirmDocumentUpload(input, deps)).rejects.toMatchObject({
+            code: 'INVALID_FILE_PATH',
+        });
     });
 });

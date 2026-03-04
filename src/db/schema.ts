@@ -102,6 +102,14 @@ export const teamAdministration = pgTable("team_administration", {
   rejectionNotes: text("rejection_notes"),
 });
 
+export const documents = pgTable("documents", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
+  fileUrl: text("file_url").notNull(),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),

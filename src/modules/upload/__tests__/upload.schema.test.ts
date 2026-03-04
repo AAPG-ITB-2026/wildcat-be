@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -104,7 +103,11 @@ describe('confirmUploadSchema', () => {
 
     it('should accept every valid documentType', () => {
         for (const dt of DOCUMENT_TYPES) {
-            const result = confirmUploadSchema.safeParse({ ...validBody, documentType: dt });
+            const result = confirmUploadSchema.safeParse({
+                ...validBody,
+                documentType: dt,
+                filePath: `${validBody.teamId}/${dt}/1708300000000_ktm.jpg`,
+            });
             expect(result.success).toBe(true);
         }
     });
@@ -112,6 +115,14 @@ describe('confirmUploadSchema', () => {
     it('should reject when teamId is missing', () => {
         const { teamId, ...bodyWithoutTeamId } = validBody;
         const result = confirmUploadSchema.safeParse(bodyWithoutTeamId);
+        expect(result.success).toBe(false);
+    });
+
+    it('should reject when filePath does not match expected team/document prefix', () => {
+        const result = confirmUploadSchema.safeParse({
+            ...validBody,
+            filePath: 'other-team/ktm/file.jpg',
+        });
         expect(result.success).toBe(false);
     });
 });
