@@ -22,6 +22,13 @@
       "when": 1772484816184,
       "tag": "0002_lively_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772660877034,
+      "tag": "0003_acoustic_crystal",
+      "breakpoints": true
     }
   ]
 }

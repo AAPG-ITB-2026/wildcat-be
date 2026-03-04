@@ -8,7 +8,8 @@ import {
     integer,
     decimal,
     doublePrecision,
-    pgEnum
+    pgEnum,
+    uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ==========================================
@@ -130,7 +131,9 @@ export const submissions = pgTable("submissions", {
     isValid: boolean("is_valid").default(false).notNull(),
     verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
-});
+}, (table) => [
+    uniqueIndex("submissions_team_requirement_idx").on(table.teamId, table.requirementId),
+]);
 
 export const stageScores = pgTable("stage_scores", {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
