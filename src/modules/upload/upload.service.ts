@@ -48,7 +48,10 @@ export async function confirmDocumentUpload(
 
     const expectedPrefix = `${teamId}/${documentType}/`;
     if (filePath.startsWith('/') || filePath.includes('..') || !filePath.startsWith(expectedPrefix)) {
-        throw new UploadError('INVALID_FILE_PATH', `filePath must start with "${expectedPrefix}"`);
+        throw new UploadError(
+            'INVALID_FILE_PATH',
+            `filePath must start with "${expectedPrefix}" and not contain path traversal or absolute paths`,
+        );
     }
 
     // Verify the file exists in R2 and check its actual content-type
