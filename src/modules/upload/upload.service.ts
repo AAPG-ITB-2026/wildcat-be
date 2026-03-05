@@ -70,6 +70,13 @@ export async function confirmDocumentUpload(
         );
     }
 
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
+    if (fileMeta.contentLength > MAX_SIZE_BYTES) {
+        throw new UploadError(
+            'INVALID_FILE_SIZE' as unknown as any,
+            `File is too large: ${(fileMeta.contentLength / 1024 / 1024).toFixed(2)}MB. Max allowed is 5MB.`
+        );
+    }
     const fileUrl = storage.getPublicUrl(filePath);
 
     const record = await administration.upsertField(teamId, documentType, fileUrl);
