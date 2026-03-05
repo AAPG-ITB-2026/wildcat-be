@@ -15,6 +15,13 @@
       "when": 1771858994657,
       "tag": "0001_awesome_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772484816184,
+      "tag": "0002_lively_romulus",
+      "breakpoints": true
     }
   ]
 }
