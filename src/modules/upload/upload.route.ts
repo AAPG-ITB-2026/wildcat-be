@@ -12,7 +12,8 @@ import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
 import { createDb } from '../../db/index.js';
 import type { Env } from '../../types/index.js';
 
-const upload = new Hono<{ Bindings: Env }>();
+// We added the Variables generic here so TypeScript knows c.get('user') exists
+const upload = new Hono<{ Bindings: Env; Variables: { user: { id: string } } }>();
 
 let cachedStorage: ReturnType<typeof createR2Storage> | null = null;
 let cachedStorageKey: string | null = null;
@@ -61,6 +62,19 @@ upload.post('/sign', async (c) => {
             );
         }
 
+        // --- IDOR PROTECTION: Verify the token matches the body ---
+        const user = c.get('user');
+        if (!user || user.id !== parseResult.data.teamId) {
+            return c.json(
+                {
+                    success: false,
+                    error: { code: 'FORBIDDEN', message: 'You can only upload files for your own team' },
+                },
+                403,
+            );
+        }
+        // ----------------------------------------------------------
+
         const result = await generateSignedUploadUrl(parseResult.data, buildDeps(c.env));
 
         return c.json({ success: true, data: result }, 200);
@@ -88,6 +102,19 @@ upload.post('/confirm', async (c) => {
             );
         }
 
+        // --- IDOR PROTECTION: Verify the token matches the body ---
+        const user = c.get('user');
+        if (!user || user.id !== parseResult.data.teamId) {
+            return c.json(
+                {
+                    success: false,
+                    error: { code: 'FORBIDDEN', message: 'You can only confirm files for your own team' },
+                },
+                403,
+            );
+        }
+        // ----------------------------------------------------------
+
         const result = await confirmDocumentUpload(parseResult.data, buildDeps(c.env));
 
         return c.json({ success: true, data: result }, 200);
@@ -105,7 +132,7 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     DB_WRITE_FAILED: 500,
 };
 
-function handleServiceError(c: Context<{ Bindings: Env }>, error: unknown) {
+function handleServiceError(c: Context<{ Bindings: Env; Variables: { user: { id: string } } }>, error: unknown) {
     if (error instanceof UploadError) {
         const status = (ERROR_STATUS_MAP[error.code] ?? 500) as ContentfulStatusCode;
         return c.json(
