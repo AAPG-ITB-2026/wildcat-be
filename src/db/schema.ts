@@ -8,13 +8,14 @@ import {
   integer, 
   decimal, 
   doublePrecision, 
-  pgEnum 
+  pgEnum,
+  unique
 } from "drizzle-orm/pg-core";
 
 // ==========================================
 // ENUMS
 // ==========================================
-export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
+export const roleEnum = pgEnum("role", ["Admin", "Committee", "Judge"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
 
@@ -51,6 +52,7 @@ export const competitionStages = pgTable("competition_stages", {
   name: varchar("name", { length: 255 }).notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
+  isScoresReleased: boolean("is_scores_released").default(false).notNull(),
 });
 
 export const stageRequirements = pgTable("stage_requirements", {
@@ -136,11 +138,14 @@ export const stageScores = pgTable("stage_scores", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
   stageId: uuid("stage_id").references(() => competitionStages.id).notNull(),
-  
-  finalScore: doublePrecision("final_score").notNull(),
+  judgeId: uuid("judge_id").references(() => committeeAccounts.id).notNull(),
+
+  score: doublePrecision("score").notNull(),
   feedback: text("feedback"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  unique("uq_stage_scores_team_stage_judge").on(t.teamId, t.stageId, t.judgeId),
+]);
 
 // ==========================================
 // 5. DECOUPLED CMS & ANALYTICS
@@ -172,4 +177,22 @@ export const announcements = pgTable("announcements", {
   
   scheduledFor: timestamp("scheduled_for"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONFIG
+// ==========================================
+export const appConfig = pgTable("app_config", {
+  key: varchar("key", { length: 100 }).primaryKey().notNull(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONTENT
+// ==========================================
+export const appContent = pgTable("app_content", {
+  section: varchar("section", { length: 100 }).primaryKey().notNull(),
+  content: text("content").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
