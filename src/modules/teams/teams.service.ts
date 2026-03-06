@@ -1,5 +1,5 @@
 import { type createDb } from "../../db/index.js";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { teamAccounts } from "../../db/schema.js";
 import { type InferSelectModel } from "drizzle-orm";
 
@@ -41,10 +41,12 @@ export const updateTeam = async (db: Db, updates: Partial<InferSelectModel<typeo
     }
 }
 
-export const getAllTeams = async (db: Db) => {
+export const getAllTeams = async (db: Db, page: number, limit: number) => {
     try {
-        const data = await db.select().from(teamAccounts)
-        return data
+        const offset = (page - 1) * limit;
+        const [{ total }] = await db.select({ total: count() }).from(teamAccounts);
+        const data = await db.select().from(teamAccounts).limit(limit).offset(offset);
+        return { data, total: Number(total), page, limit };
     } catch (error: any) {
         throw error
     }
