@@ -49,7 +49,7 @@ describe('requestUrlSchema', () => {
 
 describe('saveSubmissionSchema', () => {
     const validBody = {
-        file_url: 'https://storage.wildcat2026.com/submissions/team-1/req-1/123_paper.pdf',
+        file_path: 'submissions/team-1/req-1/123_paper.pdf',
         requirement_id: '550e8400-e29b-41d4-a716-446655440000',
     };
 
@@ -58,18 +58,18 @@ describe('saveSubmissionSchema', () => {
         expect(result.success).toBe(true);
     });
 
-    it('should reject when file_url is not a valid URL', () => {
+    it('should accept a non-URL storage path', () => {
         const result = saveSubmissionSchema.safeParse({
             ...validBody,
-            file_url: 'not-a-url',
+            file_path: 'relative/path/file.pdf',
         });
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(true);
     });
 
-    it('should reject when file_url is empty', () => {
+    it('should reject when file_path is empty', () => {
         const result = saveSubmissionSchema.safeParse({
             ...validBody,
-            file_url: '',
+            file_path: '',
         });
         expect(result.success).toBe(false);
     });
@@ -88,9 +88,9 @@ describe('saveSubmissionSchema', () => {
         expect(result.success).toBe(false);
     });
 
-    it('should reject when file_url is missing', () => {
-        const { file_url, ...bodyWithoutUrl } = validBody;
-        const result = saveSubmissionSchema.safeParse(bodyWithoutUrl);
+    it('should reject when file_path is missing', () => {
+        const { file_path, ...bodyWithoutPath } = validBody;
+        const result = saveSubmissionSchema.safeParse(bodyWithoutPath);
         expect(result.success).toBe(false);
     });
 });

@@ -98,7 +98,7 @@ describe('validateFileExtension', () => {
 
     it('should throw if filename has no extension', () => {
         expect(() => validateFileExtension('noext', 'pdf')).toThrowError(
-            new SubmissionError('INVALID_REQUIREMENT', 'Filename must have an extension'),
+            new SubmissionError('INVALID_EXTENSION', 'Filename must have an extension'),
         );
     });
 });
@@ -134,7 +134,7 @@ describe('requestPresignedUrl', () => {
         );
     });
 
-    it('should throw INVALID_REQUIREMENT when team has no current stage', async () => {
+    it('should throw STAGE_NOT_ASSIGNED when team has no current stage', async () => {
         const deps = createMockDeps({
             teams: { findById: vi.fn().mockResolvedValue({ id: 'team-1', currentStageId: null }) },
         });
@@ -144,7 +144,7 @@ describe('requestPresignedUrl', () => {
         try {
             await requestPresignedUrl(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('STAGE_NOT_ASSIGNED');
             expect((err as SubmissionError).message).toBe(
                 'Team has not been assigned to a competition stage yet',
             );
@@ -184,7 +184,7 @@ describe('requestPresignedUrl', () => {
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when requirement does not exist', async () => {
+    it('should throw REQUIREMENT_NOT_FOUND when requirement does not exist', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue(null),
@@ -197,11 +197,11 @@ describe('requestPresignedUrl', () => {
         try {
             await requestPresignedUrl(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('REQUIREMENT_NOT_FOUND');
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when requirement belongs to a different stage', async () => {
+    it('should throw STAGE_MISMATCH when requirement belongs to a different stage', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue({
@@ -220,11 +220,11 @@ describe('requestPresignedUrl', () => {
         try {
             await requestPresignedUrl(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('STAGE_MISMATCH');
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when file extension is not allowed', async () => {
+    it('should throw INVALID_EXTENSION when file extension is not allowed', async () => {
         const deps = createMockDeps();
         const badInput = { filename: 'virus.exe', requirement_id: 'req-1' };
 
@@ -233,7 +233,7 @@ describe('requestPresignedUrl', () => {
         try {
             await requestPresignedUrl(teamId, badInput, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('INVALID_EXTENSION');
         }
     });
 
@@ -262,7 +262,7 @@ describe('requestPresignedUrl', () => {
 
 describe('saveSubmission', () => {
     const input = {
-        file_url: 'https://cdn.example.com/submissions/team-1/req-1/123_paper.pdf',
+        file_path: 'submissions/team-1/req-1/123_paper.pdf',
         requirement_id: 'req-1',
     };
     const teamId = 'team-1';
@@ -278,7 +278,7 @@ describe('saveSubmission', () => {
         expect(deps.storage.headFile).toHaveBeenCalledWith('submissions/team-1/req-1/123_paper.pdf');
     });
 
-    it('should throw INVALID_REQUIREMENT when team has no current stage', async () => {
+    it('should throw STAGE_NOT_ASSIGNED when team has no current stage', async () => {
         const deps = createMockDeps({
             teams: { findById: vi.fn().mockResolvedValue({ id: 'team-1', currentStageId: null }) },
         });
@@ -288,18 +288,18 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('STAGE_NOT_ASSIGNED');
             expect((err as SubmissionError).message).toBe(
                 'Team has not been assigned to a competition stage yet',
             );
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when file URL does not belong to submissions bucket', async () => {
+    it('should throw INVALID_STORAGE_PATH when file_path does not belong to team and requirement prefix', async () => {
         const deps = createMockDeps();
         const badInput = {
             ...input,
-            file_url: 'https://evil.com/malware.exe',
+            file_path: 'submissions/other-team/req-1/evil.pdf',
         };
 
         await expect(saveSubmission(teamId, badInput, deps)).rejects.toThrow(SubmissionError);
@@ -307,14 +307,71 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, badInput, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('INVALID_STORAGE_PATH');
             expect((err as SubmissionError).message).toBe(
-                'file_url must point to the submissions storage bucket',
+                "file_path must start with 'submissions/team-1/req-1/'",
             );
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when uploaded file exceeds maximum size', async () => {
+    it('should throw INVALID_STORAGE_PATH when file_path contains path traversal segment', async () => {
+        const deps = createMockDeps();
+        const badInput = {
+            ...input,
+            file_path: 'submissions/team-1/req-1/../payload.pdf',
+        };
+
+        await expect(saveSubmission(teamId, badInput, deps)).rejects.toThrow(SubmissionError);
+
+        try {
+            await saveSubmission(teamId, badInput, deps);
+        } catch (err) {
+            expect((err as SubmissionError).code).toBe('INVALID_STORAGE_PATH');
+            expect((err as SubmissionError).message).toBe('Invalid file path');
+        }
+
+        expect(deps.storage.headFile).not.toHaveBeenCalled();
+    });
+
+    it('should throw INVALID_STORAGE_PATH when file_path has double slash', async () => {
+        const deps = createMockDeps();
+        const badInput = {
+            ...input,
+            file_path: 'submissions/team-1/req-1//payload.pdf',
+        };
+
+        await expect(saveSubmission(teamId, badInput, deps)).rejects.toThrow(SubmissionError);
+
+        try {
+            await saveSubmission(teamId, badInput, deps);
+        } catch (err) {
+            expect((err as SubmissionError).code).toBe('INVALID_STORAGE_PATH');
+            expect((err as SubmissionError).message).toBe('Invalid file path');
+        }
+
+        expect(deps.storage.headFile).not.toHaveBeenCalled();
+    });
+
+    it('should throw INVALID_STORAGE_PATH when file_path starts with slash', async () => {
+        const deps = createMockDeps();
+        const badInput = {
+            ...input,
+            file_path: '/submissions/team-1/req-1/payload.pdf',
+        };
+
+        await expect(saveSubmission(teamId, badInput, deps)).rejects.toThrow(SubmissionError);
+
+        try {
+            await saveSubmission(teamId, badInput, deps);
+        } catch (err) {
+            expect((err as SubmissionError).code).toBe('INVALID_STORAGE_PATH');
+            expect((err as SubmissionError).message).toBe('Invalid file path');
+        }
+
+        expect(deps.storage.headFile).not.toHaveBeenCalled();
+    });
+
+    it('should throw FILE_TOO_LARGE when uploaded file exceeds maximum size', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue({
@@ -342,12 +399,35 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('FILE_TOO_LARGE');
             expect((err as SubmissionError).message).toBe('Uploaded file exceeds maximum size of 1 MB');
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when uploaded file extension is not allowed in save flow', async () => {
+    it('should throw FILE_METADATA_UNAVAILABLE when uploaded file metadata cannot be verified', async () => {
+        const deps = createMockDeps({
+            storage: {
+                createSignedUploadUrl: vi.fn(),
+                listFiles: vi.fn(),
+                headFile: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: new Error('Not found'),
+                }),
+                getPublicUrl: vi.fn(),
+            },
+        });
+
+        await expect(saveSubmission(teamId, input, deps)).rejects.toThrow(SubmissionError);
+
+        try {
+            await saveSubmission(teamId, input, deps);
+        } catch (err) {
+            expect((err as SubmissionError).code).toBe('FILE_METADATA_UNAVAILABLE');
+            expect((err as SubmissionError).message).toBe('Unable to verify uploaded file metadata');
+        }
+    });
+
+    it('should throw INVALID_EXTENSION when uploaded file extension is not allowed in save flow', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue({
@@ -363,7 +443,7 @@ describe('saveSubmission', () => {
 
         const badInput = {
             ...input,
-            file_url: 'https://cdn.example.com/submissions/team-1/req-1/123_payload.exe',
+            file_path: 'submissions/team-1/req-1/123_payload.exe',
         };
 
         await expect(saveSubmission(teamId, badInput, deps)).rejects.toThrow(SubmissionError);
@@ -371,7 +451,7 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, badInput, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('INVALID_EXTENSION');
             expect((err as SubmissionError).message).toContain("File extension '.exe' is not allowed");
         }
 
@@ -411,7 +491,7 @@ describe('saveSubmission', () => {
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when requirement does not exist', async () => {
+    it('should throw REQUIREMENT_NOT_FOUND when requirement does not exist', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue(null),
@@ -424,11 +504,11 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('REQUIREMENT_NOT_FOUND');
         }
     });
 
-    it('should throw INVALID_REQUIREMENT when requirement belongs to a different stage', async () => {
+    it('should throw STAGE_MISMATCH when requirement belongs to a different stage', async () => {
         const deps = createMockDeps({
             submissions: {
                 findRequirementWithStage: vi.fn().mockResolvedValue({
@@ -447,7 +527,7 @@ describe('saveSubmission', () => {
         try {
             await saveSubmission(teamId, input, deps);
         } catch (err) {
-            expect((err as SubmissionError).code).toBe('INVALID_REQUIREMENT');
+            expect((err as SubmissionError).code).toBe('STAGE_MISMATCH');
         }
     });
 
