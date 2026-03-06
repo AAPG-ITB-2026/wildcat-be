@@ -5,7 +5,9 @@ import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
 import upload from './modules/upload/upload.route.js';
 import { authMiddleware } from './middlewares/auth.js';
+// import admin from './modules/admin/admin.route.js';
 import type { Env, Variables } from './types/index.js';
+import eventsRoute from './modules/events/events.route.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
