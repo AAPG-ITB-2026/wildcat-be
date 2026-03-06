@@ -5,6 +5,8 @@ import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
+import { adminMiddleware } from './middlewares/adminAuth.js';
+import { announcementRoutes } from './modules/announcements/announcements.route.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -12,6 +14,7 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.use('*', secureHeaders());
 app.use('/api/landing/*', authMiddleware);
 app.use('/api/admin/*', authMiddleware);
+app.use('/api/admin/*', adminMiddleware);
 
 // 2. CORS (NF02 - Privacy & Access)
 app.use('*', cors({
@@ -25,6 +28,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 // 4. Mount Modules
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
+app.route('/api/announcements', announcementRoutes);
 
 // 5. Start Server
 export default app;
