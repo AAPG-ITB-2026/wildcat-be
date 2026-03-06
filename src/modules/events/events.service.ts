@@ -13,11 +13,3 @@ export const getEvents = async (db: Db) => {
         throw error
     }
 }
-
-export const joinEvent = async (db: Db) => {
-    // try {
-    //     const data = await db.select().from(events)
-    // } catch(error: any) {
-    //     throw error
-    // }
-}

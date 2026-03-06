@@ -18,7 +18,5 @@ import type { Env, Variables } from '../../types/index.js';
 const eventsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 eventsRoute.get('', handleGetEvents)
-// eventsRoute.post('/', handleCreateTeam)
-eventsRoute.post('/join', handleJoinEvent)
 
 export default eventsRoute

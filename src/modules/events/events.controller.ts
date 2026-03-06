@@ -20,17 +20,3 @@ export const handleGetEvents = async (c: AppContext) => {
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);
     }
 }
-
-export const handleJoinEvent = async (c: AppContext) => {
-    // try {
-    //     const db = createDb(c.env);
-    //     const teamId = c.req.param('id')
-    //     const data = await getTeamById(db, teamId)
-    //
-    //     const parsedData = z.array(selectTeamSchema).parse((data))
-    //     return c.json({ data: parsedData[0] })
-    // } catch (error: any) {
-    //     console.error(error);
-    //     return c.json({ success: false, error: "An unexpected error occurred" }, 500);
-    // }
-}
