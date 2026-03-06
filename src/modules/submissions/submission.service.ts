@@ -21,17 +21,17 @@ export async function requestPresignedUrl(
     }
 
     if (!team.currentStageId) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Team has not been assigned to a competition stage yet');
+        throw new SubmissionError('STAGE_NOT_ASSIGNED', 'Team has not been assigned to a competition stage yet');
     }
 
     const requirement = await submissions.findRequirementWithStage(requirement_id);
     if (!requirement) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Requirement not found');
+        throw new SubmissionError('REQUIREMENT_NOT_FOUND', 'Requirement not found');
     }
 
     if (requirement.stageId !== team.currentStageId) {
         throw new SubmissionError(
-            'INVALID_REQUIREMENT',
+            'STAGE_MISMATCH',
             'Requirement does not belong to your current stage',
         );
     }
@@ -63,7 +63,7 @@ export async function saveSubmission(
     deps: SubmissionServiceDeps,
 ): Promise<SubmissionRecord> {
     const { storage, gatekeeping, submissions, teams } = deps;
-    const { file_url, requirement_id } = input;
+    const { file_path, requirement_id } = input;
 
     const team = await teams.findById(teamId);
     if (!team) {
@@ -76,34 +76,34 @@ export async function saveSubmission(
     }
 
     if (!team.currentStageId) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Team has not been assigned to a competition stage yet');
+        throw new SubmissionError('STAGE_NOT_ASSIGNED', 'Team has not been assigned to a competition stage yet');
     }
 
     const requirement = await submissions.findRequirementWithStage(requirement_id);
     if (!requirement) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Requirement not found');
+        throw new SubmissionError('REQUIREMENT_NOT_FOUND', 'Requirement not found');
     }
 
     if (requirement.stageId !== team.currentStageId) {
         throw new SubmissionError(
-            'INVALID_REQUIREMENT',
+            'STAGE_MISMATCH',
             'Requirement does not belong to your current stage',
         );
     }
 
-    const storagePath = extractSubmissionStoragePath(storage, file_url);
+    const storagePath = validateSubmittedStoragePath(teamId, requirement_id, file_path);
     const uploadedFileName = getFileNameFromStoragePath(storagePath);
     validateFileExtension(uploadedFileName, requirement.allowedExtensions);
 
     const { data: fileMetadata, error: fileMetadataError } = await storage.headFile(storagePath);
     if (fileMetadataError || !fileMetadata) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Unable to verify uploaded file metadata');
+        throw new SubmissionError('FILE_METADATA_UNAVAILABLE', 'Unable to verify uploaded file metadata');
     }
 
     const maxSizeBytes = requirement.maxSizeMb * 1024 * 1024;
     if (fileMetadata.contentLength > maxSizeBytes) {
         throw new SubmissionError(
-            'INVALID_REQUIREMENT',
+            'FILE_TOO_LARGE',
             `Uploaded file exceeds maximum size of ${requirement.maxSizeMb} MB`,
         );
     }
@@ -111,7 +111,7 @@ export async function saveSubmission(
     const record = await submissions.upsert({
         teamId,
         requirementId: requirement_id,
-        fileUrl: file_url,
+        fileUrl: file_path,
     });
 
     return record;
@@ -120,7 +120,7 @@ export async function saveSubmission(
 export function validateFileExtension(filename: string, allowedExtensions: string): void {
     const dotIndex = filename.lastIndexOf('.');
     if (dotIndex <= 0 || dotIndex === filename.length - 1) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'Filename must have an extension');
+        throw new SubmissionError('INVALID_EXTENSION', 'Filename must have an extension');
     }
 
     const ext = filename.slice(dotIndex + 1).toLowerCase();
@@ -131,7 +131,7 @@ export function validateFileExtension(filename: string, allowedExtensions: strin
 
     if (!allowed.includes(ext)) {
         throw new SubmissionError(
-            'INVALID_REQUIREMENT',
+            'INVALID_EXTENSION',
             `File extension '.${ext}' is not allowed. Allowed: ${allowed.map((e) => `.${e}`).join(', ')}`,
         );
     }
@@ -155,21 +155,26 @@ export function sanitizeFileName(fileName: string): string {
         .replace(/\.{2,}/g, '.');
 }
 
-function extractSubmissionStoragePath(storage: SubmissionServiceDeps['storage'], fileUrl: string): string {
-    const publicBaseUrl = storage.getPublicUrl('').replace(/\/+$/, '');
-    const expectedPrefix = `${publicBaseUrl}/submissions/`;
-
-    if (!fileUrl.startsWith(expectedPrefix)) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'file_url must point to the submissions storage bucket');
+function validateSubmittedStoragePath(teamId: string, requirementId: string, filePath: string): string {
+    if (filePath.includes('..') || filePath.includes('//') || filePath.startsWith('/')) {
+        throw new SubmissionError('INVALID_STORAGE_PATH', 'Invalid file path');
     }
 
-    return fileUrl.slice(publicBaseUrl.length + 1);
+    const expectedPrefix = `submissions/${teamId}/${requirementId}/`;
+    if (!filePath.startsWith(expectedPrefix)) {
+        throw new SubmissionError(
+            'INVALID_STORAGE_PATH',
+            `file_path must start with '${expectedPrefix}'`,
+        );
+    }
+
+    return filePath;
 }
 
 function getFileNameFromStoragePath(storagePath: string): string {
     const fileName = storagePath.split('/').pop();
     if (!fileName) {
-        throw new SubmissionError('INVALID_REQUIREMENT', 'file_url must point to a valid file path');
+        throw new SubmissionError('INVALID_STORAGE_PATH', 'file_path must point to a valid file path');
     }
 
     return fileName;

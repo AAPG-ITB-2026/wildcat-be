@@ -11,9 +11,9 @@ export const requestUrlSchema = z.object({
 });
 
 export const saveSubmissionSchema = z.object({
-    file_url: z
+    file_path: z
         .string()
-        .url('file_url must be a valid URL'),
+        .min(1, 'file_path is required'),
     requirement_id: z
         .string()
         .uuid('requirement_id must be a valid UUID'),
