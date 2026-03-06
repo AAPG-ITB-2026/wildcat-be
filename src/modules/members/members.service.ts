@@ -35,6 +35,15 @@ export const updateMember = async (db: Db, updates: Partial<MemberData>, teamId:
     if (updates.fullName !== undefined) update[`${slot}Name`] = updates.fullName;
     if (updates.major !== undefined) update[`${slot}Major`] = updates.major;
 
+    if (Object.keys(update).length === 0) {
+        const [team] = await db.select().from(teamAccounts).where(eq(teamAccounts.id, teamId)).limit(1);
+        return {
+            slot,
+            fullName: slot === 'm1' ? team.m1Name! : team.m2Name!,
+            major: slot === 'm1' ? team.m1Major! : team.m2Major!,
+        };
+    }
+
     const [updatedTeam] = await db.update(teamAccounts)
         .set(update)
         .where(eq(teamAccounts.id, teamId))

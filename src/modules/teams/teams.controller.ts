@@ -9,10 +9,11 @@ type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
 
 export const handleCreateTeam = async (c: AppContext) => {
     try {
-        const db = createDb(c.env);
-        const userId = c.var.user.id;
         const data = await c.req.json()
         const parsedData = insertTeamSchema.parse(data)
+
+        const db = createDb(c.env);
+        const userId = c.var.user.id;
 
         const insertedTeam = await createTeam(db, parsedData, userId);
 
