@@ -14,7 +14,7 @@ export const handleGetEvents = async (c: AppContext) => {
         const data = await getEvents(db)
 
         const parsedData = z.array(selectEventSchema).parse((data))
-        return c.json({ data: parsedData[0] })
+        return c.json({ data: parsedData })
     } catch (error: any) {
         console.error(error);
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);

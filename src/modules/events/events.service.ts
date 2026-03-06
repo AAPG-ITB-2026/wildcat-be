@@ -7,7 +7,7 @@ type Db = ReturnType<typeof createDb>;
 
 export const getEvents = async (db: Db) => {
     try {
-        const data = await db.select().from(events)
+        const data = await db.select().from(events).where(eq(events.isPublished, true))
         return data
     } catch (error: any) {
         throw error
