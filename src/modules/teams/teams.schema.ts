@@ -8,7 +8,7 @@ const m1BothOrNeither = (d: { m1Name?: string | null; m1Major?: string | null })
 const m2BothOrNeither = (d: { m2Name?: string | null; m2Major?: string | null }) =>
     !!d.m2Name === !!d.m2Major;
 
-export const insertTeamSchema = createInsertSchema(teamAccounts, {
+export const insertTeamSchemaBase = createInsertSchema(teamAccounts, {
     teamName: (schema) => schema.min(3).max(50),
     leadName: (schema) => schema.min(2),
     leadMajor: (schema) => schema.min(2),
@@ -19,10 +19,13 @@ export const insertTeamSchema = createInsertSchema(teamAccounts, {
     id: true,
     currentStageId: true,
     createdAt: true,
-}).refine(m1BothOrNeither, { message: "m1Name and m1Major must both be provided or both omitted" })
- .refine(m2BothOrNeither, { message: "m2Name and m2Major must both be provided or both omitted" });
+});
 
-export const updateTeamSchema = insertTeamSchema.partial()
+export const insertTeamSchema = insertTeamSchemaBase
+    .refine(m1BothOrNeither, { message: "m1Name and m1Major must both be provided or both omitted" })
+    .refine(m2BothOrNeither, { message: "m2Name and m2Major must both be provided or both omitted" });
+
+export const updateTeamSchema = insertTeamSchemaBase.partial()
     .refine(m1BothOrNeither, { message: "m1Name and m1Major must both be provided or both omitted" })
     .refine(m2BothOrNeither, { message: "m2Name and m2Major must both be provided or both omitted" });
 

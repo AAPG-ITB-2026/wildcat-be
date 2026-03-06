@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
-import { buildApp, seedTeam, cleanupTeam } from '../../test/helpers.js';
+import { buildApp, seedTeam, cleanupTeam, seedCompetition, cleanupCompetition } from '../../test/helpers.js';
 import { randomUUID } from 'crypto';
 
 const app = buildApp();
+
+beforeAll(async () => { await seedCompetition(); });
+afterAll(async () => { await cleanupCompetition(); });
 
 const mockEnv = {
   DATABASE_URL: process.env.DATABASE_URL!,

@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { buildApp, makeTeamPayload, seedTeam, cleanupTeam } from '../../test/helpers.js';
+import { buildApp, makeTeamPayload, seedTeam, cleanupTeam, seedCompetition, cleanupCompetition } from '../../test/helpers.js';
 import { randomUUID } from 'crypto';
 
 const app = buildApp();
+
+beforeAll(async () => { await seedCompetition(); });
+afterAll(async () => { await cleanupCompetition(); });
 
 // Fake env passed via c.env — not used when auth is off, but Hono requires it
 const mockEnv = {
