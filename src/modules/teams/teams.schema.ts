@@ -26,6 +26,11 @@ export const updateTeamSchema = insertTeamSchema.partial()
     .refine(m1BothOrNeither, { message: "m1Name and m1Major must both be provided or both omitted" })
     .refine(m2BothOrNeither, { message: "m2Name and m2Major must both be provided or both omitted" });
 
+export const paginationSchema = z.object({
+    page:  z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export const teamIdParamSchema = z.object({
     teamId: z.string().uuid(),
 })
@@ -33,4 +38,6 @@ export const teamIdParamSchema = z.object({
 export const selectTeamSchema = createSelectSchema(teamAccounts);
 export const publicTeamSchema = selectTeamSchema.omit({
     id: true,
+    phoneNumber: true,
+    lineId: true,
 });

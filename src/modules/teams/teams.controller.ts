@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { insertTeamSchema, selectTeamSchema, updateTeamSchema } from "./teams.schema.js";
+import { insertTeamSchema, selectTeamSchema, updateTeamSchema, paginationSchema } from "./teams.schema.js";
 import { createTeam, getAllTeams, getTeamById, updateTeam } from "./teams.service.js";
 import { createDb } from "../../db/index.js";
 import type { Env, Variables } from "../../types/index.js";
@@ -59,10 +59,17 @@ export const handleUpdateTeam = async (c: AppContext) => {
 export const handleGetAllTeams = async (c: AppContext) => {
     try {
         const db = createDb(c.env);
-        const data = await getAllTeams(db)
-        const parsedData = z.array(selectTeamSchema).parse((data))
-        return c.json({ data: parsedData })
+        const { page, limit } = paginationSchema.parse(c.req.query());
+        const { data, total, ...meta } = await getAllTeams(db, page, limit);
+        const parsedData = z.array(selectTeamSchema).parse(data);
+        return c.json({
+            data: parsedData,
+            meta: { ...meta, total, totalPages: Math.ceil(total / limit) },
+        });
     } catch (error: any) {
+        if (error.name === "ZodError") {
+            return c.json({ success: false, error: "Invalid pagination params", details: error.errors }, 400);
+        }
         console.error(error);
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);
     }
