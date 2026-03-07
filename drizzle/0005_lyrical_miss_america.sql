@@ -1,0 +1,1 @@
+ALTER TABLE "competition_stages" ADD COLUMN "is_scores_released" boolean DEFAULT false NOT NULL;--> statement-breakpoint
