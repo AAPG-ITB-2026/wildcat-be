@@ -46,7 +46,7 @@ export function createDrizzleAdministrationRepo(db: PostgresJsDatabase): Adminis
                 })
                 .onConflictDoUpdate({
                     target: teamAdministration.teamId,
-                    set: { [column]: fileUrl },
+                    set: { [column]: fileUrl, verificationStatus: 'Pending' },
                 })
                 .returning();
 
