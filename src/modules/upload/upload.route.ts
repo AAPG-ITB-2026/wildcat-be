@@ -9,7 +9,7 @@ import type { UploadServiceDeps } from './upload.types.js';
 import { createDrizzleAdministrationRepo } from './adapters/drizzle-administration.adapter.js';
 import { createDrizzleTeamRepo } from './adapters/drizzle-team.adapter.js';
 import { createDb } from '../../db/index.js';
-import { getStorage } from '../../lib/r2.js';
+import { getStorage } from '../../infrastructure/storage/get-storage.js';
 import type { Env } from '../../types/index.js';
 
 const upload = new Hono<{ Bindings: Env }>();

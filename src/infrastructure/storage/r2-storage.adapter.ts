@@ -1,11 +1,13 @@
 import {
     S3Client,
     PutObjectCommand,
+    GetObjectCommand,
     ListObjectsV2Command,
     HeadObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import type { StorageClient, StorageResult } from '../upload.types.js';
+import type { StorageClient, StorageResult } from '../../shared/storage/storage.types.js';
+import { resolveObjectKeyFromReference } from '../../lib/object-key.js';
 
 export interface R2StorageConfig {
     accountId: string;
@@ -14,7 +16,11 @@ export interface R2StorageConfig {
     bucketName: string;
     publicUrl: string;
     signedUrlExpiresIn?: number;
+    signedReadUrlExpiresIn?: number;
 }
+
+export { resolveObjectKeyFromReference };
+
 export function createR2Storage(config: R2StorageConfig): StorageClient {
     const {
         accountId,
@@ -23,6 +29,7 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
         bucketName,
         publicUrl,
         signedUrlExpiresIn = 600,
+        signedReadUrlExpiresIn = 900,
     } = config;
 
     const client = new S3Client({
@@ -48,6 +55,31 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
 
                 const signedUrl = await getSignedUrl(client, command, {
                     expiresIn: signedUrlExpiresIn,
+                });
+
+                return {
+                    data: { signedUrl, path },
+                    error: null,
+                };
+            } catch (err) {
+                return {
+                    data: null,
+                    error: err instanceof Error ? err : new Error(String(err)),
+                };
+            }
+        },
+
+        async createSignedDownloadUrl(
+            path: string,
+        ): Promise<StorageResult<{ signedUrl: string; path: string }>> {
+            try {
+                const command = new GetObjectCommand({
+                    Bucket: bucketName,
+                    Key: path,
+                });
+
+                const signedUrl = await getSignedUrl(client, command, {
+                    expiresIn: signedReadUrlExpiresIn,
                 });
 
                 return {
@@ -126,4 +158,3 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
         },
     };
 }
-

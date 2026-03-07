@@ -1,4 +1,4 @@
-import type { StorageClient } from '../upload/upload.types.js';
+import type { StorageClient } from '../../shared/storage/storage.types.js';
 
 export interface GatekeepingRepository {
     checkTeamEligibility(teamId: string): Promise<{
