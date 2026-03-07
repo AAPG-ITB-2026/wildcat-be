@@ -221,4 +221,63 @@ describe('admin.route BE22 endpoints', () => {
         expect(body.success).toBe(false);
         expect(body.error?.code).toBe('INTERNAL_ERROR');
     });
+
+    it('PATCH /api/admin/stages/:stage_id/release-scores should release scores for a valid stage', async () => {
+        const stageId = '550e8400-e29b-41d4-a716-446655440000';
+        mockCreateDb.mockReturnValue({
+            update: vi.fn().mockReturnValue({
+                set: vi.fn().mockReturnValue({
+                    where: vi.fn().mockReturnValue({
+                        returning: vi.fn().mockResolvedValue([
+                            {
+                                stageId,
+                                stageName: 'Semifinal',
+                                isScoresReleased: true,
+                            },
+                        ]),
+                    }),
+                }),
+            }),
+        });
+
+        const app = createApp();
+        const res = await app.request(`/api/admin/stages/${stageId}/release-scores`, { method: 'PATCH' }, fakeEnv);
+        const body = (await res.json()) as { success: boolean; data?: { stageId: string; isScoresReleased: boolean } };
+
+        expect(res.status).toBe(200);
+        expect(body.success).toBe(true);
+        expect(body.data?.stageId).toBe(stageId);
+        expect(body.data?.isScoresReleased).toBe(true);
+    });
+
+    it('PATCH /api/admin/stages/:stage_id/release-scores should return 404 when stage is not found', async () => {
+        const stageId = '550e8400-e29b-41d4-a716-446655440000';
+        mockCreateDb.mockReturnValue({
+            update: vi.fn().mockReturnValue({
+                set: vi.fn().mockReturnValue({
+                    where: vi.fn().mockReturnValue({
+                        returning: vi.fn().mockResolvedValue([]),
+                    }),
+                }),
+            }),
+        });
+
+        const app = createApp();
+        const res = await app.request(`/api/admin/stages/${stageId}/release-scores`, { method: 'PATCH' }, fakeEnv);
+        const body = (await res.json()) as { success: boolean; error?: { code?: string } };
+
+        expect(res.status).toBe(404);
+        expect(body.success).toBe(false);
+        expect(body.error?.code).toBe('NOT_FOUND');
+    });
+
+    it('PATCH /api/admin/stages/:stage_id/release-scores should reject invalid UUID', async () => {
+        const app = createApp();
+        const res = await app.request('/api/admin/stages/not-a-uuid/release-scores', { method: 'PATCH' }, fakeEnv);
+        const body = (await res.json()) as RouteErrorBody;
+
+        expect(res.status).toBe(400);
+        expect(body.success).toBe(false);
+        expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
 });
