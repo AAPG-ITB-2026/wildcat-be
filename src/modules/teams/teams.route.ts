@@ -1,7 +1,14 @@
 import { Hono } from 'hono';
-import { handleCreateTeam, handleGetAllTeams, handleGetTeamById, handleUpdateTeam } from './teams.controller.js';
+import {
+	handleCreateTeam,
+	handleGetAllTeams,
+	handleGetMyResults,
+	handleGetTeamById,
+	handleUpdateTeam,
+} from './teams.controller.js';
 import { handleAddMember, handleGetAllTeamMembers } from '../members/members.controller.js'
 import type { Env, Variables } from '../../types/index.js';
+import { authMiddleware } from '../../middlewares/auth.js';
 
 /*
  * Teams Routes — base: /api/teams
@@ -31,8 +38,12 @@ import type { Env, Variables } from '../../types/index.js';
 
 const teamsRoute = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+teamsRoute.use('/my-results', authMiddleware);
+
 teamsRoute.get('/', handleGetAllTeams)
 teamsRoute.post('/', handleCreateTeam)
+
+teamsRoute.get('/my-results', handleGetMyResults)
 
 teamsRoute.get('/:id', handleGetTeamById)
 teamsRoute.patch('/:id', handleUpdateTeam)
