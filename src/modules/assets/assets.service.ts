@@ -44,10 +44,13 @@ export async function getGuidebookUrl(
             `Guidebook is not yet available for competition "${row.name}"`,
         );
     }
+    const baseUrl = deps.publicAssetUrl.replace(/\/+$/, '');
+    const path = row.guidebookUrl.replace(/^\/+/, '');
+    const fullUrl = `${baseUrl}/${path}`;
 
     return {
         competitionId: row.id,
         competitionName: row.name,
-        guidebookUrl: row.guidebookUrl,
+        guidebookUrl: fullUrl,
     };
 }
