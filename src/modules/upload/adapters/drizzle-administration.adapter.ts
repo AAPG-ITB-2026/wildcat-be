@@ -34,7 +34,7 @@ export function createDrizzleAdministrationRepo(db: PostgresJsDatabase): Adminis
         async upsertField(
             teamId: string,
             field: DocumentType,
-            fileUrl: string,
+            filePath: string,
         ): Promise<AdministrationRecord> {
             const column = FIELD_TO_COLUMN[field];
 
@@ -42,11 +42,11 @@ export function createDrizzleAdministrationRepo(db: PostgresJsDatabase): Adminis
                 .insert(teamAdministration)
                 .values({
                     teamId,
-                    [column]: fileUrl,
+                    [column]: filePath,
                 })
                 .onConflictDoUpdate({
                     target: teamAdministration.teamId,
-                    set: { [column]: fileUrl, verificationStatus: 'Pending' },
+                    set: { [column]: filePath, verificationStatus: 'Pending' },
                 })
                 .returning();
 

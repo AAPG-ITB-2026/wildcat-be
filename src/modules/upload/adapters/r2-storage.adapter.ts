@@ -3,6 +3,7 @@ import {
     PutObjectCommand,
     ListObjectsV2Command,
     HeadObjectCommand,
+    GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { StorageClient, StorageResult } from '../upload.types.js';
@@ -61,7 +62,27 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
                 };
             }
         },
+        
+        async createSignedDownloadUrl(
+            path: string,
+            expiresIn = 3600 // Default 1 hour
+        ): Promise<StorageResult<string>> {
+            try {
+                const command = new GetObjectCommand({
+                    Bucket: bucketName,
+                    Key: path,
+                });
 
+                const signedUrl = await getSignedUrl(client, command, { expiresIn });
+                return { data: signedUrl, error: null };
+            } catch (err) {
+                return {
+                    data: null,
+                    error: err instanceof Error ? err : new Error(String(err)),
+                };
+            }
+        },
+        
         async listFiles(
             folder: string,
             search?: string,
