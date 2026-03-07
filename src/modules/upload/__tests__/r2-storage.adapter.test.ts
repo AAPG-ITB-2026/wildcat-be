@@ -14,6 +14,10 @@ vi.mock('@aws-sdk/client-s3', () => {
             input: unknown;
             constructor(input: unknown) { this.input = input; }
         },
+        GetObjectCommand: class MockGetObjectCommand {
+            input: unknown;
+            constructor(input: unknown) { this.input = input; }
+        },
         ListObjectsV2Command: class MockListObjectsV2Command {
             input: unknown;
             constructor(input: unknown) { this.input = input; }
@@ -31,8 +35,8 @@ vi.mock('@aws-sdk/s3-request-presigner', () => {
     };
 });
 
-import { createR2Storage } from '../adapters/r2-storage.adapter.js';
-import type { R2StorageConfig } from '../adapters/r2-storage.adapter.js';
+import { createR2Storage, resolveObjectKeyFromReference } from '../../../infrastructure/storage/r2-storage.adapter.js';
+import type { R2StorageConfig } from '../../../infrastructure/storage/r2-storage.adapter.js';
 
 const baseConfig: R2StorageConfig = {
     accountId: 'test-account-id',
@@ -90,6 +94,45 @@ describe('R2 Storage Adapter', () => {
                 expect.anything(),
                 expect.objectContaining({ expiresIn: 120 }),
             );
+        });
+    });
+
+    describe('createSignedDownloadUrl', () => {
+        it('should return a signed URL and path on success', async () => {
+            const fakeUrl = 'https://test-account-id.r2.cloudflarestorage.com/download?X-Amz-Signature=abc';
+            mockGetSignedUrl.mockResolvedValue(fakeUrl);
+
+            const storage = createStorage();
+            const result = await storage.createSignedDownloadUrl('team/ktm/123_file.jpg');
+
+            expect(result.error).toBeNull();
+            expect(result.data).not.toBeNull();
+            expect(result.data!.signedUrl).toBe(fakeUrl);
+            expect(result.data!.path).toBe('team/ktm/123_file.jpg');
+        });
+
+        it('should use 900s read expiry by default', async () => {
+            mockGetSignedUrl.mockResolvedValue('https://signed.url');
+
+            const storage = createStorage();
+            await storage.createSignedDownloadUrl('path/file.pdf');
+
+            expect(mockGetSignedUrl).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.anything(),
+                expect.objectContaining({ expiresIn: 900 }),
+            );
+        });
+
+        it('should return an error result when getSignedUrl throws', async () => {
+            mockGetSignedUrl.mockRejectedValue(new Error('Signing failed'));
+
+            const storage = createStorage();
+            const result = await storage.createSignedDownloadUrl('team/ktm/123_file.jpg');
+
+            expect(result.data).toBeNull();
+            expect(result.error).toBeInstanceOf(Error);
+            expect(result.error!.message).toBe('Signing failed');
         });
     });
 
@@ -217,6 +260,32 @@ describe('headFile', () => {
 
         expect(result.error).toBeNull();
         expect(result.data!.contentType).toBe('application/octet-stream');
+    });
+});
+
+describe('resolveObjectKeyFromReference', () => {
+    it('should return null for empty input', () => {
+        expect(resolveObjectKeyFromReference(null)).toBeNull();
+        expect(resolveObjectKeyFromReference(undefined)).toBeNull();
+        expect(resolveObjectKeyFromReference('   ')).toBeNull();
+    });
+
+    it('should keep plain object key as-is', () => {
+        expect(resolveObjectKeyFromReference('submissions/team-1/req-1/file.pdf')).toBe(
+            'submissions/team-1/req-1/file.pdf',
+        );
+    });
+
+    it('should extract key from absolute URL', () => {
+        expect(
+            resolveObjectKeyFromReference('https://cdn.example.com/submissions/team-1/req-1/file.pdf'),
+        ).toBe('submissions/team-1/req-1/file.pdf');
+    });
+
+    it('should reject suspicious traversal-like path', () => {
+        expect(resolveObjectKeyFromReference('../secret/file.pdf')).toBeNull();
+        expect(resolveObjectKeyFromReference('submissions//team/file.pdf')).toBeNull();
+        expect(resolveObjectKeyFromReference('submissions\\team\\file.pdf')).toBeNull();
     });
 });
 

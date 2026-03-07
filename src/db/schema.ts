@@ -8,7 +8,8 @@ import {
     integer,
     decimal,
     doublePrecision,
-    pgEnum
+    pgEnum,
+    uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ==========================================
@@ -17,6 +18,9 @@ import {
 export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
+export const statusEnum = pgEnum("status", ["Registered", "Document_Verified", "Paid"]);
+// KATEGORI MASIH PERLU NYESUAIN
+export const categoryEnum = pgEnum("category", ["Wildcat", "Smart_Competition", "Paper_Competition"]);
 
 // ==========================================
 // 1. INTERNAL ADMINISTRATION
@@ -51,6 +55,7 @@ export const competitionStages = pgTable("competition_stages", {
     name: varchar("name", { length: 255 }).notNull(),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date").notNull(),
+    isScoresReleased: boolean("is_scores_released").default(false).notNull(),
 });
 
 export const stageRequirements = pgTable("stage_requirements", {
@@ -65,6 +70,26 @@ export const stageRequirements = pgTable("stage_requirements", {
 // ==========================================
 // 3. ONBOARDING FUNNEL (PROFILE -> DOCS -> PAYMENT)
 // ==========================================
+
+export const teams = pgTable("teams", {
+        id: uuid("id").defaultRandom().primaryKey().notNull(),
+        userId: uuid("user_id").notNull(),
+        teamName: text("team_name").notNull().unique(),
+        leaderName: text("leader_name").notNull(),
+        leaderMajor: text("leader_major").notNull(),
+        university: text("university").notNull(),
+        category: categoryEnum("category").notNull(),
+        status: statusEnum("status").default("Registered").notNull(),
+        createdAt: timestamp("created_at").defaultNow(),
+        updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const members = pgTable("members", {
+        id: uuid("id").defaultRandom().primaryKey().notNull(),
+        teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }).notNull(),
+        fullName: text("full_name").notNull(),
+        major: text("major").notNull(),
+});
 
 export const teamAccounts = pgTable("team_accounts", {
     id: uuid("id").primaryKey().notNull(), // Maps to Supabase auth.users.id
@@ -130,7 +155,9 @@ export const submissions = pgTable("submissions", {
     isValid: boolean("is_valid").default(false).notNull(),
     verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
-});
+}, (table) => [
+    uniqueIndex("submissions_team_requirement_idx").on(table.teamId, table.requirementId),
+]);
 
 export const stageScores = pgTable("stage_scores", {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
@@ -172,4 +199,22 @@ export const announcements = pgTable("announcements", {
 
     scheduledFor: timestamp("scheduled_for"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONFIG
+// ==========================================
+export const appConfig = pgTable("app_config", {
+    key: varchar("key", { length: 100 }).primaryKey().notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONTENT
+// ==========================================
+export const appContent = pgTable("app_content", {
+    section: varchar("section", { length: 100 }).primaryKey().notNull(),
+    content: text("content").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
