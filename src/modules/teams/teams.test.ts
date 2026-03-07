@@ -1,8 +1,10 @@
-import { insertTeamSchema } from "./teams.schema.js";
+import { describe, expect, it } from 'vitest';
+import { insertTeamSchema } from './teams.schema.js';
 
-try {
-    insertTeamSchema.parse({}) // parse empty object
-} catch (err: any){
-    console.log("Validation Failed")
-    console.table(err.flatten().fieldErrors)
-}
+describe('teams.schema', () => {
+    it('should reject empty payload for team creation', () => {
+        const result = insertTeamSchema.safeParse({});
+
+        expect(result.success).toBe(false);
+    });
+});
