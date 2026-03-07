@@ -40,8 +40,10 @@ export async function requestPresignedUrl(
 
     const storagePath = buildSubmissionPath(teamId, requirement_id, filename);
 
-    const { data, error } = await storage.createSignedUploadUrl(storagePath, {});
-
+    const { data, error } = await storage.createSignedUploadUrl(storagePath, {
+        contentType: input.content_type, 
+    });
+    
     if (error || !data) {
         throw new SubmissionError(
             'SIGNED_URL_FAILED',
@@ -100,6 +102,19 @@ export async function saveSubmission(
         throw new SubmissionError('FILE_METADATA_UNAVAILABLE', 'Unable to verify uploaded file metadata');
     }
 
+    // Server-side content-type enforcement based on stage requirement
+    // allowedExtensions now contains MIME types: "application/pdf, image/png"
+    const allowedContentTypes = requirement.allowedExtensions
+        .split(',')
+        .map((type) => type.trim().toLowerCase());
+    
+    if (!allowedContentTypes.includes(fileMetadata.contentType.toLowerCase())) {
+        throw new SubmissionError(
+            'INVALID_CONTENT_TYPE',
+            `File has content-type '${fileMetadata.contentType}', allowed: ${requirement.allowedExtensions}`,
+        );
+    }
+
     const maxSizeBytes = requirement.maxSizeMb * 1024 * 1024;
     if (fileMetadata.contentLength > maxSizeBytes) {
         throw new SubmissionError(
@@ -125,14 +140,14 @@ export function validateFileExtension(filename: string, allowedExtensions: strin
 
     const ext = filename.slice(dotIndex + 1).toLowerCase();
 
-    const allowed = allowedExtensions
-        .split(',')
-        .map((e) => e.trim().toLowerCase().replace(/^\./, ''));
-
-    if (!allowed.includes(ext)) {
+    // allowedExtensions now contains MIME types like "application/pdf, image/png"
+    // Just ensure a file extension exists and was provided
+    // The actual MIME type validation happens at upload confirmation via content-type check
+    // This is a basic sanity check for the filename
+    if (!ext || ext.length === 0) {
         throw new SubmissionError(
             'INVALID_EXTENSION',
-            `File extension '.${ext}' is not allowed. Allowed: ${allowed.map((e) => `.${e}`).join(', ')}`,
+            `File must have a valid extension. Allowed MIME types: ${allowedExtensions}`,
         );
     }
 }
