@@ -2,9 +2,14 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { createDb } from '../../db/index.js';
 import { appConfig, appContent, announcements } from '../../db/schema.js';
+import { committeeMiddleware } from '../../middlewares/auth.js';
+import exportRouter from './export.route.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const admin = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+
+admin.route('/export', exportRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/config
@@ -73,12 +78,14 @@ admin.put('/content/:section', async (c) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/admin/announcements
 // Create a broadcast announcement
-// Body: { title: string, message: string, metadata?: object }
+// Body: { title: string, content: string, targetAudience: string, attachmentUrl?: string, scheduledFor?: string }
 // ─────────────────────────────────────────────────────────────────────────────
 const announcementSchema = z.object({
   title: z.string().min(1, 'title cannot be empty'),
-  message: z.string().min(1, 'message cannot be empty'),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  content: z.string().min(1, 'content cannot be empty'),
+  targetAudience: z.enum(['All', 'Paper_Poster', 'BCC', 'GnG', 'HighSchool']),
+  attachmentUrl: z.string().url().optional(),
+  scheduledFor: z.string().datetime().optional(),
 });
 
 admin.post('/announcements', async (c) => {
@@ -89,12 +96,20 @@ admin.post('/announcements', async (c) => {
     return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
   }
 
-  const { title, message, metadata } = parsed.data;
+  const { title, content, targetAudience, attachmentUrl, scheduledFor } = parsed.data;
+  const user = c.get('user');
   const db = createDb(c.env);
 
   const [created] = await db
     .insert(announcements)
-    .values({ title, message, metadata: metadata ?? null })
+    .values({
+      authorId: user.id,
+      title,
+      content,
+      targetAudience,
+      attachmentUrl: attachmentUrl ?? null,
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+    })
     .returning();
 
   return c.json({ success: true, announcement: created }, 201);
