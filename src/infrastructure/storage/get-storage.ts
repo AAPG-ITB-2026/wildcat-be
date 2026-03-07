@@ -1,5 +1,5 @@
-import { createR2Storage } from '../modules/upload/adapters/r2-storage.adapter.js';
-import type { Env } from '../types/index.js';
+import { createR2Storage } from './r2-storage.adapter.js';
+import type { Env } from '../../types/index.js';
 
 let cachedStorage: ReturnType<typeof createR2Storage> | null = null;
 let cachedStorageKey: string | null = null;
