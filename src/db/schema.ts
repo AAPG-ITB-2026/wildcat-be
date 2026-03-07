@@ -18,6 +18,8 @@ import {
 export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
+export const statusEnum = pgEnum("status", ["Registered", "Document_Verified", "Paid"]);
+export const categoryEnum = pgEnum("category", ["Wildcat", "Smart_Competition", "Paper_Competition"]);
 
 // ==========================================
 // 1. INTERNAL ADMINISTRATION
@@ -66,6 +68,26 @@ export const stageRequirements = pgTable("stage_requirements", {
 // ==========================================
 // 3. ONBOARDING FUNNEL (PROFILE -> DOCS -> PAYMENT)
 // ==========================================
+
+export const teams = pgTable("teams", {
+        id: uuid("id").defaultRandom().primaryKey().notNull(),
+        userId: uuid("user_id").notNull(),
+        teamName: text("team_name").notNull().unique(),
+        leaderName: text("leader_name").notNull(),
+        leaderMajor: text("leader_major").notNull(),
+        university: text("university").notNull(),
+        category: categoryEnum("category").notNull(),
+        status: statusEnum("status").default("Registered").notNull(),
+        createdAt: timestamp("created_at").defaultNow(),
+        updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const members = pgTable("members", {
+        id: uuid("id").defaultRandom().primaryKey().notNull(),
+        teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }).notNull(),
+        fullName: text("full_name").notNull(),
+        major: text("major").notNull(),
+});
 
 export const teamAccounts = pgTable("team_accounts", {
     id: uuid("id").primaryKey().notNull(), // Maps to Supabase auth.users.id

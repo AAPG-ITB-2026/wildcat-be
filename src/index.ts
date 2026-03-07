@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route.js';
+import teamsRoute from './modules/teams/teams.route.js';
+import membersRoute from './modules/members/members.route.js';
 import admin from './modules/admin/admin.route.js';
 import upload from './modules/upload/upload.route.js';
 import submissions from './modules/submissions/submission.route.js';
@@ -15,11 +17,10 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
 
-
 // 2. CORS (must be before auth so preflight OPTIONS gets headers)
 app.use('*', cors({
     origin: '*', // TODO: Restrict to frontend domain(s)
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
 }));
 
 // 3. Auth
@@ -34,6 +35,9 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 
 // 5. Mount Modules
 app.route('/api/landing', landing);
+app.route('/api/teams', teamsRoute);
+app.route('/api/members', membersRoute);
+// TODO: add trailing slash middleware?
 app.route('/api/admin', admin);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
