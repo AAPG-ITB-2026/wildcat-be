@@ -16,6 +16,7 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
                 data: { signedUrl: 'https://r2.example.com/signed-url', path: 'test-path' },
                 error: null,
             }),
+            createSignedDownloadUrl: vi.fn(),
             listFiles: vi.fn().mockResolvedValue({
                 data: [{ name: 'file.jpg' }],
                 error: null,
@@ -142,6 +143,7 @@ describe('generateSignedUploadUrl', () => {
                     data: null,
                     error: new Error('R2 connection failed'),
                 }),
+                createSignedDownloadUrl: vi.fn(),
                 listFiles: vi.fn(),
                 headFile: vi.fn(),
                 getPublicUrl: vi.fn(),
@@ -212,6 +214,7 @@ describe('confirmDocumentUpload', () => {
         const deps = createMockDeps({
             storage: {
                 createSignedUploadUrl: vi.fn(),
+                createSignedDownloadUrl: vi.fn(),
                 listFiles: vi.fn(),
                 headFile: vi.fn().mockResolvedValue({ data: null, error: new Error('NotFound') }),
                 getPublicUrl: vi.fn(),
@@ -231,6 +234,7 @@ describe('confirmDocumentUpload', () => {
         const deps = createMockDeps({
             storage: {
                 createSignedUploadUrl: vi.fn(),
+                createSignedDownloadUrl: vi.fn(),
                 listFiles: vi.fn(),
                 headFile: vi.fn().mockResolvedValue({
                     data: { contentType: 'text/html', contentLength: 500 },

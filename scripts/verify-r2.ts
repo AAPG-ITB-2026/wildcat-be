@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import {
     createR2Storage,
     type R2StorageConfig,
-} from '../src/modules/upload/adapters/r2-storage.adapter.js';
+} from '../src/infrastructure/storage/r2-storage.adapter.js';
 
 function mask(value: string): string {
     if (value.length <= 8) return '***';

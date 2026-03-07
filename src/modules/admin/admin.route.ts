@@ -1,10 +1,51 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { z } from 'zod';
 import { createDb } from '../../db/index.js';
-import { appConfig, appContent, announcements } from '../../db/schema.js';
+import {
+  appConfig,
+  appContent,
+  announcements,
+} from '../../db/schema.js';
+import { getStorage } from '../../infrastructure/storage/get-storage.js';
 import type { Env, Variables } from '../../types/index.js';
+import {
+  adminReviewPaginationQuerySchema,
+  stageSubmissionsParamsSchema,
+} from './admin.schema.js';
+import {
+  listAdministrationVerificationReviews,
+  listPaymentVerificationReviews,
+  listStageSubmissionReviews,
+} from './admin.service.js';
+import type { AdminReviewServiceDeps } from './admin.types.js';
+import { createDrizzleAdminReviewRepo } from './adapters/drizzle-admin-review.adapter.js';
 
 const admin = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+function buildReviewDeps(env: Env): AdminReviewServiceDeps {
+  const db = createDb(env);
+
+  return {
+    storage: getStorage(env),
+    reviews: createDrizzleAdminReviewRepo(db),
+  };
+}
+
+function handleReviewError(c: Context<{ Bindings: Env; Variables: Variables }>, error: unknown) {
+  console.error('[admin-review] Unexpected error:', error);
+
+  return c.json(
+    {
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    },
+    500,
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/config
@@ -108,6 +149,116 @@ admin.post('/announcements', async (c) => {
     .returning();
 
   return c.json({ success: true, announcement: created }, 201);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/transactions
+// Committee review list for payment verifications.
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get('/transactions', async (c) => {
+  try {
+    const paginationQuery = adminReviewPaginationQuerySchema.safeParse(c.req.query());
+    if (!paginationQuery.success) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            details: z.flattenError(paginationQuery.error).fieldErrors,
+          },
+        },
+        400,
+      );
+    }
+
+    const data = await listPaymentVerificationReviews(buildReviewDeps(c.env), paginationQuery.data);
+
+    return c.json({ success: true, data }, 200);
+  } catch (error) {
+    return handleReviewError(c, error);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/teams/administration
+// Committee review list for administration documents.
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get('/teams/administration', async (c) => {
+  try {
+    const paginationQuery = adminReviewPaginationQuerySchema.safeParse(c.req.query());
+    if (!paginationQuery.success) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            details: z.flattenError(paginationQuery.error).fieldErrors,
+          },
+        },
+        400,
+      );
+    }
+
+    const data = await listAdministrationVerificationReviews(
+      buildReviewDeps(c.env),
+      paginationQuery.data,
+    );
+
+    return c.json({ success: true, data }, 200);
+  } catch (error) {
+    return handleReviewError(c, error);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/stages/:stage_id/submissions
+// Committee review list for stage submissions.
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get('/stages/:stage_id/submissions', async (c) => {
+  try {
+    const paginationQuery = adminReviewPaginationQuerySchema.safeParse(c.req.query());
+    if (!paginationQuery.success) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid query parameters',
+            details: z.flattenError(paginationQuery.error).fieldErrors,
+          },
+        },
+        400,
+      );
+    }
+
+    const stageParams = stageSubmissionsParamsSchema.safeParse(c.req.param());
+    if (!stageParams.success) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid route parameters',
+            details: z.flattenError(stageParams.error).fieldErrors,
+          },
+        },
+        400,
+      );
+    }
+
+    const { stage_id: stageId } = stageParams.data;
+    const data = await listStageSubmissionReviews(
+      stageId,
+      buildReviewDeps(c.env),
+      paginationQuery.data,
+    );
+
+    return c.json({ success: true, data }, 200);
+  } catch (error) {
+    return handleReviewError(c, error);
+  }
 });
 
 export default admin;
