@@ -4,6 +4,12 @@ import { createTeam, getAllTeams, getTeamById, updateTeam } from "./teams.servic
 import { createDb } from "../../db/index.js";
 import type { Env, Variables } from "../../types/index.js";
 import z from "zod";
+import { listMyReleasedResults } from './teams-results.service.js';
+import { TeamResultsError } from './teams-results.errors.js';
+import {
+    createDrizzleTeamAccountRepo,
+    createDrizzleTeamResultsRepo,
+} from './adapters/drizzle-team-results.adapter.js';
 
 type AppContext = Context<{ Bindings: Env; Variables: Variables }>;
 
@@ -82,5 +88,45 @@ export const handleGetTeamById = async (c: AppContext) => {
     } catch (error: any) {
         console.error(error);
         return c.json({ success: false, error: "An unexpected error occurred" }, 500);
+    }
+}
+
+export const handleGetMyResults = async (c: AppContext) => {
+    try {
+        const user = c.get('user');
+        const teamId = user.id;
+        const db = createDb(c.env);
+
+        const data = await listMyReleasedResults(teamId, {
+            accounts: createDrizzleTeamAccountRepo(db),
+            results: createDrizzleTeamResultsRepo(db),
+        });
+
+        return c.json({ success: true, data }, 200);
+    } catch (error) {
+        if (error instanceof TeamResultsError) {
+            return c.json(
+                {
+                    success: false,
+                    error: {
+                        code: error.code,
+                        message: error.message,
+                    },
+                },
+                403,
+            );
+        }
+
+        console.error('[teams/my-results] Unexpected error:', error);
+        return c.json(
+            {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: 'An unexpected error occurred',
+                },
+            },
+            500,
+        );
     }
 }
