@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771349246099,
-      "tag": "0000_rare_devos",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1771858994657,
-      "tag": "0001_awesome_madripoor",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1772484816184,
-      "tag": "0002_lively_romulus",
+      "when": 1772790215667,
+      "tag": "0000_natural_hex",
       "breakpoints": true
     }
   ]
