@@ -8,6 +8,7 @@ export type SubmissionErrorCode =
     | 'INVALID_STORAGE_PATH'
     | 'FILE_METADATA_UNAVAILABLE'
     | 'FILE_TOO_LARGE'
+    | 'INVALID_CONTENT_TYPE'
     | 'SIGNED_URL_FAILED'
     | 'DB_WRITE_FAILED';
 
