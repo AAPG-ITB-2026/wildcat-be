@@ -1,4 +1,6 @@
 import type { User } from '@supabase/supabase-js';
+import type { InferSelectModel } from 'drizzle-orm';
+import type { committeeAccounts } from '../db/schema.js';
 
 // Cloudflare Workers environment bindings (from wrangler.toml / wrangler secrets)
 export type Env = {
@@ -21,5 +23,7 @@ export type Env = {
 };
 
 export type Variables = {
+  user: User; // Injects the Supabase User type into Hono's context
+  committee: InferSelectModel<typeof committeeAccounts>; // Set by committeeMiddleware
     user: User;
 };
