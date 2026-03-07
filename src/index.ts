@@ -4,6 +4,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
 import upload from './modules/upload/upload.route.js';
+import submissions from './modules/submissions/submission.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
 
@@ -22,6 +23,7 @@ app.use('*', cors({
 app.use('/api/landing/*', authMiddleware);
 app.use('/api/admin/*', authMiddleware);
 app.use('/api/upload/*', authMiddleware);
+app.use('/api/submissions/*', authMiddleware);
 
 // 4. Health Check (For Docker/PM2 - BE-15)
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -30,6 +32,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
 app.route('/api/upload', upload);
+app.route('/api/submissions', submissions);
 
 // 6. Start Server
 export default app;
