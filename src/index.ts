@@ -7,11 +7,16 @@ import upload from './modules/upload/upload.route.js';
 import submissions from './modules/submissions/submission.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
+import { adminMiddleware } from './middlewares/adminAuth.js';
+import { announcementRoutes } from './modules/announcements/announcements.route.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
+app.use('/api/landing/*', authMiddleware);
+app.use('/api/admin/*', authMiddleware);
+app.use('/api/admin/*', adminMiddleware);
 
 // 2. CORS (must be before auth so preflight OPTIONS gets headers)
 app.use('*', cors({
@@ -31,6 +36,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 // 5. Mount Modules
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
+app.route('/api/announcements', announcementRoutes);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
 
