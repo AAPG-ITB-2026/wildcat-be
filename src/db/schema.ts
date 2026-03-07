@@ -19,6 +19,7 @@ export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
 export const statusEnum = pgEnum("status", ["Registered", "Document_Verified", "Paid"]);
+// KATEGORI MASIH PERLU NYESUAIN
 export const categoryEnum = pgEnum("category", ["Wildcat", "Smart_Competition", "Paper_Competition"]);
 
 // ==========================================
@@ -54,6 +55,7 @@ export const competitionStages = pgTable("competition_stages", {
     name: varchar("name", { length: 255 }).notNull(),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date").notNull(),
+    isScoresReleased: boolean("is_scores_released").default(false).notNull(),
 });
 
 export const stageRequirements = pgTable("stage_requirements", {
