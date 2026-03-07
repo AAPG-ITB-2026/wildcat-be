@@ -11,6 +11,11 @@ export interface StorageClient {
         options?: { contentType?: string },
     ): Promise<StorageResult<{ signedUrl: string; path: string }>>;
 
+    createSignedDownloadUrl(
+        path: string, 
+        expiresIn?: number
+    ): Promise<StorageResult<string>>;
+
     listFiles(
         folder: string,
         search?: string,
@@ -37,7 +42,7 @@ export interface AdministrationRepository {
     upsertField(
         teamId: string,
         field: DocumentType,
-        fileUrl: string,
+        filePath: string,
     ): Promise<AdministrationRecord>;
 }
 
