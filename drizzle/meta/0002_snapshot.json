@@ -1,6 +1,6 @@
 {
-  "id": "708e7d77-049b-49de-85d4-bae91321bd0f",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "29b5f517-7462-494f-aa16-b4170db6eef2",
+  "prevId": "0fa1106d-9028-42de-a7d1-042529b34d79",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -782,7 +782,7 @@
           "name": "lead_ktm",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "m1_ktm": {
           "name": "m1_ktm",
@@ -800,13 +800,13 @@
           "name": "twibbon_proof",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "poster_proof": {
           "name": "poster_proof",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "verification_status": {
           "name": "verification_status",

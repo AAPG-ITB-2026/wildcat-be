@@ -91,11 +91,11 @@ export const teamAccounts = pgTable("team_accounts", {
 export const teamAdministration = pgTable("team_administration", {
   teamId: uuid("team_id").primaryKey().references(() => teamAccounts.id).notNull(), // Enforces 1:1 relation
   
-  leadKtm: text("lead_ktm").notNull(), // Cloudflare R2 URLs
+  leadKtm: text("lead_ktm"), // Cloudflare R2 URLs
   m1Ktm: text("m1_ktm"),
   m2Ktm: text("m2_ktm"),
-  twibbonProof: text("twibbon_proof").notNull(),
-  posterProof: text("poster_proof").notNull(),
+  twibbonProof: text("twibbon_proof"),
+  posterProof: text("poster_proof"),
   
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
@@ -172,4 +172,22 @@ export const announcements = pgTable("announcements", {
   
   scheduledFor: timestamp("scheduled_for"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONFIG
+// ==========================================
+export const appConfig = pgTable("app_config", {
+  key: varchar("key", { length: 100 }).primaryKey().notNull(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONTENT
+// ==========================================
+export const appContent = pgTable("app_content", {
+  section: varchar("section", { length: 100 }).primaryKey().notNull(),
+  content: text("content").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
