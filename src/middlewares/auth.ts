@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono';
 import { eq } from 'drizzle-orm';
-import { createSupabaseClient } from '../lib/supabase.js';
+import { verifyWithJwks } from 'hono/jwt';
 import { createDb } from '../db/index.js';
 import { committeeAccounts } from '../db/schema.js';
 import type { Env, Variables } from '../types/index.js';
@@ -14,15 +14,30 @@ export const authMiddleware = async (c: Context<{ Bindings: Env; Variables: Vari
 
   const token = authHeader.split(' ')[1];
 
-  const supabase = createSupabaseClient(c.env);
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-
-  if (error || !user) {
+  let payload: Record<string, unknown>;
+  try {
+    payload = await verifyWithJwks(token, {
+      jwks_uri: `${c.env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`,
+      allowedAlgorithms: ['ES256'],
+    });
+  } catch (e) {
+    console.error('[auth] JWT verify failed:', (e as Error).message);
     return c.json({ error: 'Unauthorized: Invalid or expired token' }, 401);
   }
 
-  c.set('user', user);
+  if (!payload.sub) {
+    return c.json({ error: 'Unauthorized: Invalid token payload' }, 401);
+  }
+
+  c.set('user', {
+    id: payload.sub as string,
+    email: (payload.email as string) ?? '',
+    role: (payload.role as string) ?? '',
+    app_metadata: (payload.app_metadata as Record<string, unknown>) ?? {},
+    user_metadata: (payload.user_metadata as Record<string, unknown>) ?? {},
+    aud: (payload.aud as string) ?? '',
+    created_at: (payload.created_at as string) ?? '',
+  } as any);
 
   await next();
 };
