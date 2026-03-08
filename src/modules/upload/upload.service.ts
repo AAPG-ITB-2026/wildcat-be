@@ -77,9 +77,7 @@ export async function confirmDocumentUpload(
             `File is too large: ${(fileMeta.contentLength / 1024 / 1024).toFixed(2)}MB. Max allowed is 5MB.`
         );
     }
-    const fileUrl = storage.getPublicUrl(filePath);
-
-    const record = await administration.upsertField(teamId, documentType, fileUrl);
+    const record = await administration.upsertField(teamId, documentType, filePath);
     return { administration: record };
 }
 
@@ -88,9 +86,8 @@ export function buildStoragePath(
     documentType: string,
     fileName: string,
 ): string {
-    const sanitized = sanitizeFileName(fileName);
-    const timestamp = Date.now();
-    return `${teamId}/${documentType}/${timestamp}_${sanitized}`;
+    const ext = fileName.split('.').pop()?.toLowerCase() ?? 'bin';
+    return `${teamId}/${documentType}.${ext}`;
 }
 
 export function sanitizeFileName(fileName: string): string {

@@ -7,6 +7,17 @@
 .idea/workspace.xml
 .idea/usage.statistics.xml
 .idea/shelf
+*.local*
+
+# cloudflare workers
+.dev.vars
+.preview.vars
+.prod.vars
+.production.vars
+*.vars
+.secrets
+*.secrets
+*.secret
 
 # cloudflare workers
 .dev.vars

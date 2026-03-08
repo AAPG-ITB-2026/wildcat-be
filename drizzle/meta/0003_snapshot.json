@@ -1,6 +1,6 @@
 {
-  "id": "708e7d77-049b-49de-85d4-bae91321bd0f",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "1bea0893-d156-4adf-a56b-cabf90e3764d",
+  "prevId": "f4d7c20f-f55b-4e20-8607-d99c332271e6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -76,70 +76,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.app_config": {
-      "name": "app_config",
-      "schema": "",
-      "columns": {
-        "key": {
-          "name": "key",
-          "type": "varchar(100)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.app_content": {
-      "name": "app_content",
-      "schema": "",
-      "columns": {
-        "section": {
-          "name": "section",
-          "type": "varchar(100)",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -595,7 +531,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "submissions_team_requirement_idx": {
+          "name": "submissions_team_requirement_idx",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "requirement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "submissions_team_id_team_accounts_id_fk": {
           "name": "submissions_team_id_team_accounts_id_fk",
