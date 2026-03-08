@@ -10,7 +10,7 @@ import { createDrizzleGatekeepingRepo } from './adapters/drizzle-gatekeeping.ada
 import { createDrizzleSubmissionRepo } from './adapters/drizzle-submission.adapter.js';
 import { createDrizzleSubmissionTeamRepo } from './adapters/drizzle-submission-team.adapter.js';
 import { createDb } from '../../db/index.js';
-import { getStorage } from '../../lib/r2.js';
+import { getStorage } from '../../infrastructure/storage/get-storage.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const submissions = new Hono<{ Bindings: Env; Variables: Variables }>();

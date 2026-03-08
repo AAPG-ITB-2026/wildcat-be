@@ -42,6 +42,7 @@ app.route('/api/announcements', announcementRoutes);
 app.route('/api/assets', assets);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
+app.route('/api/announcements', announcementRoutes);
 
 // 6. Start Server
 export default app;
