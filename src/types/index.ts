@@ -17,6 +17,7 @@ export type Env = {
     R2_SECRET_ACCESS_KEY: string;
     R2_BUCKET_NAME: string;
     R2_PUBLIC_URL: string;
+    PUBLIC_ASSET_URL: string;
 
     // Legacy — still used by drizzle-kit migrations via .env
     DATABASE_URL: string;
@@ -25,5 +26,4 @@ export type Env = {
 export type Variables = {
   user: User; // Injects the Supabase User type into Hono's context
   committee: InferSelectModel<typeof committeeAccounts>; // Set by committeeMiddleware
-    user: User;
 };

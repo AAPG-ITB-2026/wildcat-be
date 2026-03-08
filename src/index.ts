@@ -4,6 +4,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
 import upload from './modules/upload/upload.route.js';
+import assets from './modules/assets/assets.route.js';
 import submissions from './modules/submissions/submission.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
