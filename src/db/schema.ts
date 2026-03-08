@@ -191,3 +191,10 @@ export const appContent = pgTable("app_content", {
   content: text("content").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const eventRegistrationLog = pgTable("event_registration_log", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  eventId: uuid("event_id").references(() => events.id).notNull(),
+  teamId: uuid("team_id").references(() => teamAccounts.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
