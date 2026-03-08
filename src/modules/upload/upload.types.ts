@@ -1,3 +1,5 @@
+import type { DocumentType } from './upload.schema.js';
+
 export interface StorageResult<T> {
     data: T | null;
     error: Error | null;
@@ -6,8 +8,13 @@ export interface StorageResult<T> {
 export interface StorageClient {
     createSignedUploadUrl(
         path: string,
-        options?: { upsert?: boolean; contentType?: string },
-    ): Promise<StorageResult<{ signedUrl: string; path: string; token: string }>>;
+        options?: { contentType?: string },
+    ): Promise<StorageResult<{ signedUrl: string; path: string }>>;
+
+    createSignedDownloadUrl(
+        path: string, 
+        expiresIn?: number
+    ): Promise<StorageResult<string>>;
 
     listFiles(
         folder: string,
@@ -21,20 +28,22 @@ export interface StorageClient {
     getPublicUrl(path: string): string;
 }
 
-export interface DocumentRecord {
-    id: string;
+export interface AdministrationRecord {
     teamId: string;
-    fileUrl: string;
-    isVerified: boolean;
-    createdAt: Date | null;
+    leadKtm: string | null;
+    m1Ktm: string | null;
+    m2Ktm: string | null;
+    twibbonProof: string | null;
+    posterProof: string | null;
+    verificationStatus: 'Pending' | 'Verified' | 'Rejected';
 }
 
-export interface DocumentRepository {
-    insert(data: {
-        teamId: string;
-        fileUrl: string;
-        isVerified: boolean;
-    }): Promise<DocumentRecord>;
+export interface AdministrationRepository {
+    upsertField(
+        teamId: string,
+        field: DocumentType,
+        filePath: string,
+    ): Promise<AdministrationRecord>;
 }
 
 export interface TeamRepository {
@@ -43,16 +52,15 @@ export interface TeamRepository {
 
 export interface UploadServiceDeps {
     storage: StorageClient;
-    documents: DocumentRepository;
+    administration: AdministrationRepository;
     teams: TeamRepository;
 }
 
 export interface SignedUploadResult {
     signedUrl: string;
     path: string;
-    token: string;
 }
 
 export interface ConfirmUploadResult {
-    document: DocumentRecord;
+    administration: AdministrationRecord;
 }

@@ -18,7 +18,6 @@ export async function generateSignedUploadUrl(
     const storagePath = buildStoragePath(teamId, documentType, fileName);
 
     const { data, error } = await storage.createSignedUploadUrl(storagePath, {
-        upsert: true,
         contentType: input.contentType,
     });
 
@@ -32,7 +31,6 @@ export async function generateSignedUploadUrl(
     return {
         signedUrl: data.signedUrl,
         path: data.path,
-        token: data.token,
     };
 }
 
@@ -40,12 +38,21 @@ export async function confirmDocumentUpload(
     input: ConfirmUploadInput,
     deps: UploadServiceDeps,
 ): Promise<ConfirmUploadResult> {
-    const { storage, documents, teams } = deps;
-    const { teamId, filePath } = input;
+    const { storage, administration, teams } = deps;
+    const { teamId, documentType, filePath } = input;
 
     const team = await teams.findById(teamId);
     if (!team) {
         throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
+    }
+
+    // Ensure the file path matches the expected team/documentType prefix
+    const expectedPrefix = `${teamId}/${documentType}/`;
+    if (!filePath.startsWith(expectedPrefix)) {
+        throw new UploadError(
+            'INVALID_FILE_PATH',
+            `File path '${filePath}' does not match expected prefix '${expectedPrefix}' for team ${teamId} and document type ${documentType}`,
+        );
     }
 
     // Verify the file exists in R2 and check its actual content-type
@@ -63,10 +70,15 @@ export async function confirmDocumentUpload(
         );
     }
 
-    const fileUrl = storage.getPublicUrl(filePath);
-
-    const document = await documents.insert({ teamId, fileUrl, isVerified: false });
-    return { document };
+    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
+    if (fileMeta.contentLength > MAX_SIZE_BYTES) {
+        throw new UploadError(
+            'INVALID_FILE_SIZE' as unknown as any,
+            `File is too large: ${(fileMeta.contentLength / 1024 / 1024).toFixed(2)}MB. Max allowed is 5MB.`
+        );
+    }
+    const record = await administration.upsertField(teamId, documentType, filePath);
+    return { administration: record };
 }
 
 export function buildStoragePath(
@@ -74,14 +86,14 @@ export function buildStoragePath(
     documentType: string,
     fileName: string,
 ): string {
-    const sanitized = sanitizeFileName(fileName);
-    const timestamp = Date.now();
-    return `${teamId}/${documentType}/${timestamp}_${sanitized}`;
+    const ext = fileName.split('.').pop()?.toLowerCase() ?? 'bin';
+    return `${teamId}/${documentType}.${ext}`;
 }
 
 export function sanitizeFileName(fileName: string): string {
     return fileName
         .toLowerCase()
         .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9\-_.]/g, '');
+        .replace(/[^a-z0-9\-_.]/g, '')
+        .replace(/\.{2,}/g, '.');
 }

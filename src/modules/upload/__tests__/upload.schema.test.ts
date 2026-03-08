@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -11,7 +10,7 @@ import {
 describe('signUploadSchema', () => {
     const validBody = {
         teamId: '550e8400-e29b-41d4-a716-446655440000',
-        documentType: 'ktm',
+        documentType: 'lead_ktm',
         contentType: 'image/jpeg',
         fileName: 'my_ktm.jpg',
     };
@@ -80,8 +79,8 @@ describe('signUploadSchema', () => {
 describe('confirmUploadSchema', () => {
     const validBody = {
         teamId: '550e8400-e29b-41d4-a716-446655440000',
-        documentType: 'ktm',
-        filePath: '550e8400-e29b-41d4-a716-446655440000/ktm/1708300000000_ktm.jpg',
+        documentType: 'lead_ktm',
+        filePath: '550e8400-e29b-41d4-a716-446655440000/lead_ktm/1708300000000_ktm.jpg',
     };
 
     it('should accept a valid request body', () => {

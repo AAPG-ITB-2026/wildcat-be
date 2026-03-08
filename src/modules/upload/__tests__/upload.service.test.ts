@@ -1,4 +1,3 @@
-// TODO: Install vitest before running
 import { describe, it, expect, vi } from 'vitest';
 
 import {
@@ -14,7 +13,7 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
     return {
         storage: {
             createSignedUploadUrl: vi.fn().mockResolvedValue({
-                data: { signedUrl: 'https://supabase.co/signed-url', path: 'test-path', token: 'test-token' },
+                data: { signedUrl: 'https://r2.example.com/signed-url', path: 'test-path' },
                 error: null,
             }),
             listFiles: vi.fn().mockResolvedValue({
@@ -25,15 +24,17 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
                 data: { contentType: 'image/jpeg', contentLength: 12345 },
                 error: null,
             }),
-            getPublicUrl: vi.fn().mockReturnValue('https://placeholder/public/file.jpg'),
+            getPublicUrl: vi.fn().mockReturnValue('https://cdn.example.com/public/file.jpg'),
         },
-        documents: {
-            insert: vi.fn().mockResolvedValue({
-                id: 'test-doc-id',
+        administration: {
+            upsertField: vi.fn().mockResolvedValue({
                 teamId: 'test-team-id',
-                fileUrl: 'https://placeholder/file.jpg',
-                isVerified: false,
-                createdAt: new Date(),
+                leadKtm: 'https://cdn.example.com/public/file.jpg',
+                m1Ktm: null,
+                m2Ktm: null,
+                twibbonProof: null,
+                posterProof: null,
+                verificationStatus: 'Pending',
             }),
         },
         teams: {
@@ -46,18 +47,18 @@ function createMockDeps(overrides?: Partial<UploadServiceDeps>): UploadServiceDe
 describe('buildStoragePath', () => {
     it('should produce a path in the format: {teamId}/{docType}/{timestamp}_{fileName}', () => {
         const teamId = '550e8400-e29b-41d4-a716-446655440000';
-        const docType = 'ktm';
+        const docType = 'lead_ktm';
         const fileName = 'My KTM Card.jpg';
 
         const path = buildStoragePath(teamId, docType, fileName);
 
         expect(path).toMatch(
-            /^550e8400-e29b-41d4-a716-446655440000\/ktm\/\d+_my-ktm-card\.jpg$/,
+            /^550e8400-e29b-41d4-a716-446655440000\/lead_ktm\/\d+_my-ktm-card\.jpg$/,
         );
     });
 
     it('should sanitize the file name within the path', () => {
-        const path = buildStoragePath('team-id', 'ktm', 'Spaced File (1).PNG');
+        const path = buildStoragePath('team-id', 'lead_ktm', 'Spaced File (1).PNG');
         expect(path).toContain('spaced-file-1.png');
     });
 });
@@ -82,6 +83,10 @@ describe('sanitizeFileName', () => {
     it('should handle multiple consecutive spaces', () => {
         expect(sanitizeFileName('a   b.jpg')).toBe('a-b.jpg');
     });
+
+    it('should collapse multiple consecutive dots', () => {
+        expect(sanitizeFileName('file..name..jpg')).toBe('file.name.jpg');
+    });
 });
 
 describe('UploadError', () => {
@@ -104,7 +109,7 @@ describe('generateSignedUploadUrl', () => {
 
         const input = {
             teamId: 'team-1',
-            documentType: 'ktm' as const,
+            documentType: 'lead_ktm' as const,
             contentType: 'image/jpeg' as const,
             fileName: 'ktm.jpg',
         };
@@ -113,7 +118,6 @@ describe('generateSignedUploadUrl', () => {
 
         expect(result.signedUrl).toBeDefined();
         expect(result.path).toBeDefined();
-        expect(result.token).toBeDefined();
     });
 
     it('should throw TEAM_NOT_FOUND when team does not exist', async () => {
@@ -123,7 +127,7 @@ describe('generateSignedUploadUrl', () => {
 
         const input = {
             teamId: 'nonexistent',
-            documentType: 'ktm' as const,
+            documentType: 'lead_ktm' as const,
             contentType: 'image/jpeg' as const,
             fileName: 'ktm.jpg',
         };
@@ -146,7 +150,7 @@ describe('generateSignedUploadUrl', () => {
 
         const input = {
             teamId: 'team-1',
-            documentType: 'ktm' as const,
+            documentType: 'lead_ktm' as const,
             contentType: 'image/jpeg' as const,
             fileName: 'ktm.jpg',
         };
@@ -156,19 +160,19 @@ describe('generateSignedUploadUrl', () => {
 });
 
 describe('confirmDocumentUpload', () => {
-    it('should insert document record for valid input', async () => {
+    it('should upsert administration record for valid input', async () => {
         const deps = createMockDeps();
 
         const input = {
             teamId: 'team-1',
-            documentType: 'ktm' as const,
-            filePath: 'team-1/ktm/123_ktm.jpg',
+            documentType: 'lead_ktm' as const,
+            filePath: 'team-1/lead_ktm/123_ktm.jpg',
         };
 
         const result = await confirmDocumentUpload(input, deps);
 
-        expect(result.document.id).toBeDefined();
-        expect(result.document.fileUrl).toContain('file.jpg');
+        expect(result.administration.teamId).toBeDefined();
+        expect(result.administration.verificationStatus).toBe('Pending');
     });
 
     it('should throw TEAM_NOT_FOUND when team does not exist', async () => {
@@ -178,11 +182,30 @@ describe('confirmDocumentUpload', () => {
 
         const input = {
             teamId: 'nonexistent',
-            documentType: 'ktm' as const,
-            filePath: 'nonexistent/ktm/123_ktm.jpg',
+            documentType: 'lead_ktm' as const,
+            filePath: 'nonexistent/lead_ktm/123_ktm.jpg',
         };
 
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+    });
+
+    it('should throw INVALID_FILE_PATH when filePath does not match expected prefix', async () => {
+        const deps = createMockDeps();
+
+        const input = {
+            teamId: 'team-1',
+            documentType: 'lead_ktm' as const,
+            filePath: 'other-team/m1_ktm/123_ktm.jpg',
+        };
+
+        await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
+
+        try {
+            await confirmDocumentUpload(input, deps);
+        } catch (err) {
+            expect(err).toBeInstanceOf(UploadError);
+            expect((err as UploadError).code).toBe('INVALID_FILE_PATH');
+        }
     });
 
     it('should throw FILE_NOT_FOUND when headFile returns error', async () => {
@@ -197,8 +220,8 @@ describe('confirmDocumentUpload', () => {
 
         const input = {
             teamId: 'team-1',
-            documentType: 'ktm' as const,
-            filePath: 'team-1/ktm/123_ktm.jpg',
+            documentType: 'lead_ktm' as const,
+            filePath: 'team-1/lead_ktm/123_ktm.jpg',
         };
 
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
@@ -219,8 +242,8 @@ describe('confirmDocumentUpload', () => {
 
         const input = {
             teamId: 'team-1',
-            documentType: 'ktm' as const,
-            filePath: 'team-1/ktm/123_evil.html',
+            documentType: 'lead_ktm' as const,
+            filePath: 'team-1/lead_ktm/123_evil.html',
         };
 
         await expect(confirmDocumentUpload(input, deps)).rejects.toThrow(UploadError);
