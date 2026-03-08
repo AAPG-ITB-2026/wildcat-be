@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { registerTeamStep1, registerTeamStep2 } from './landing.service.js';
+import { registerTeamStep1, registerTeamStep2, checkRegistrationStatus } from './landing.service.js';
 import { createDb } from '../../db/index.js';
 import type { Env, Variables } from '../../types/index.js';
 
@@ -29,6 +29,34 @@ landing.get('/', async (c) => {
   };
 
   return c.json(responseData);
+});
+
+/**
+ * Check registration status
+ * GET /api/landing/check-registration
+ * Auth: Required (user id comes from Supabase token)
+ * Response: { registered: boolean, teamId?, competitionId?, isCompleted? }
+ * 
+ * FE flow after Google login:
+ * - If registered=false → redirect to Step 1 registration form
+ * - If registered=true && isCompleted=false → redirect to Step 2 form
+ * - If registered=true && isCompleted=true → redirect to dashboard
+ */
+landing.get('/check-registration', async (c) => {
+  try {
+    const userId = c.get('user')?.id;
+    if (!userId) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const db = createDb(c.env);
+    const result = await checkRegistrationStatus(userId, db);
+
+    return c.json(result, 200);
+  } catch (error: any) {
+    console.error('[landing] Check registration error:', error);
+    return c.json({ error: error.message || 'Check failed' }, 500);
+  }
 });
 
 /**

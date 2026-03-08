@@ -93,3 +93,37 @@ export async function registerTeamStep2(
 
   return { success: true };
 }
+
+/**
+ * Check if user has already registered for a team.
+ * Used by FE after Google login to determine redirect flow.
+ */
+export async function checkRegistrationStatus(
+  userId: string,
+  db: PostgresJsDatabase,
+): Promise<{
+  registered: boolean;
+  teamId?: string;
+  competitionId?: string;
+  isCompleted?: boolean; // true if both Step 1 & 2 done (phoneNumber/lineId are non-empty)
+}> {
+  const [team] = await db
+    .select()
+    .from(teamAccounts)
+    .where(eq(teamAccounts.id, userId))
+    .limit(1);
+
+  if (!team) {
+    return { registered: false };
+  }
+
+  // Check if Step 2 is completed (contact fields filled)
+  const isCompleted = !!(team.phoneNumber && team.lineId);
+
+  return {
+    registered: true,
+    teamId: team.id,
+    competitionId: team.competitionId,
+    isCompleted,
+  };
+}
