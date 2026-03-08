@@ -38,6 +38,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
 app.route('/api/announcements', announcementRoutes);
+app.route('/api/assets', assets);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
 
