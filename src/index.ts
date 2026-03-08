@@ -15,19 +15,20 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
-app.use('/api/landing/*', authMiddleware);
-app.use('/api/admin/*', authMiddleware);
-app.use('/api/admin/*', adminMiddleware);
 
-// 2. CORS (must be before auth so preflight OPTIONS gets headers)
+// 2. CORS (WAJIB di atas Auth Middleware agar Preflight OPTIONS lolos)
 app.use('*', cors({
-    origin: '*', // TODO: Restrict to frontend domain(s)
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: '*', // TODO: Restrict to frontend domain(s) nanti saat production
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // Tambahkan OPTIONS dan PATCH
+    allowHeaders: ['Content-Type', 'Authorization'], // Wajib ada agar frontend bisa kirim Token
+    exposeHeaders: ['Content-Length'],
+    credentials: true,
 }));
 
-// 3. Auth
+// 3. Auth (Hanya pasang 1 kali saja di sini)
 app.use('/api/landing/*', authMiddleware);
 app.use('/api/admin/*', authMiddleware);
+app.use('/api/admin/*', adminMiddleware); // Admin middleware dieksekusi setelah authMiddleware
 app.use('/api/upload/*', authMiddleware);
 app.use('/api/submissions/*', authMiddleware);
 

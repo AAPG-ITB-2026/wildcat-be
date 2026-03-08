@@ -10,3 +10,6 @@ custom_domain = true
 [[hyperdrive]]
 binding = "HYPERDRIVE"
 id = "9037a7b995d2405e888770a264c2d2f5"
+
+# Secrets are set via `npx wrangler secret put` command and should not be hardcoded in this file
+# They will be injected at runtime from Cloudflare's secret management system
