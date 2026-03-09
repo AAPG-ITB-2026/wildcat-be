@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
-import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events } from '../../db/schema.js';
+import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events, transactions } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
 import exportRouter from './export.route.js';
 import type { Env, Variables } from '../../types/index.js';
@@ -199,6 +199,136 @@ admin.post(
         rejectionNotes: updated.rejectionNotes,
       },
       team,
+    });
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/admin/transactions/:transaction_id/verify
+// Verify or reject a team's manual payment.
+// Body: { status: 'Verified' | 'Rejected', rejection_reason?: string }
+// Security: CommitteeAccount middleware (Admin/Committee roles only)
+// ─────────────────────────────────────────────────────────────────────────────
+const verifyTransactionSchema = z.object({
+  status: z.enum(['Verified', 'Rejected']),
+  rejection_reason: z.string().min(1).optional(),
+});
+
+admin.patch(
+  '/transactions/:transaction_id/verify',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const transactionId = c.req.param('transaction_id');
+    const body = await c.req.json();
+    const parsed = verifyTransactionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
+    }
+
+    const { status, rejection_reason } = parsed.data;
+
+    if (status === 'Rejected' && !rejection_reason) {
+      return c.json({ error: 'rejection_reason is required when status is "Rejected"' }, 400);
+    }
+
+    const committee = c.get('committee');
+    const db = createDb(c.env);
+
+    // Verify transaction exists
+    const [existing] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, transactionId))
+      .limit(1);
+
+    if (!existing) {
+      return c.json({ error: 'Transaction not found' }, 404);
+    }
+
+    const [updated] = await db
+      .update(transactions)
+      .set({
+        verificationStatus: status,
+        verifiedBy: committee.id,
+        rejectionNotes: status === 'Rejected' ? (rejection_reason ?? null) : null,
+      })
+      .where(eq(transactions.id, transactionId))
+      .returning();
+
+    return c.json({
+      success: true,
+      transaction: {
+        id: updated.id,
+        teamId: updated.teamId,
+        verificationStatus: updated.verificationStatus,
+        verifiedBy: updated.verifiedBy,
+        rejectionNotes: updated.rejectionNotes,
+      },
+    });
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/admin/teams/:team_id/administration/verify
+// Verify or reject a team's administration documents.
+// Body: { status: 'Verified' | 'Rejected', rejection_reason?: string }
+// Security: CommitteeAccount middleware (Admin/Committee roles only)
+// ─────────────────────────────────────────────────────────────────────────────
+const verifyAdministrationSchema = z.object({
+  status: z.enum(['Verified', 'Rejected']),
+  rejection_reason: z.string().min(1).optional(),
+});
+
+admin.patch(
+  '/teams/:team_id/administration/verify',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const teamId = c.req.param('team_id');
+    const body = await c.req.json();
+    const parsed = verifyAdministrationSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
+    }
+
+    const { status, rejection_reason } = parsed.data;
+
+    if (status === 'Rejected' && !rejection_reason) {
+      return c.json({ error: 'rejection_reason is required when status is "Rejected"' }, 400);
+    }
+
+    const committee = c.get('committee');
+    const db = createDb(c.env);
+
+    const [existing] = await db
+      .select({ teamId: teamAdministration.teamId })
+      .from(teamAdministration)
+      .where(eq(teamAdministration.teamId, teamId))
+      .limit(1);
+
+    if (!existing) {
+      return c.json({ error: 'Team administration record not found' }, 404);
+    }
+
+    const [updated] = await db
+      .update(teamAdministration)
+      .set({
+        verificationStatus: status,
+        verifiedBy: committee.id,
+        rejectionNotes: status === 'Rejected' ? (rejection_reason ?? null) : null,
+      })
+      .where(eq(teamAdministration.teamId, teamId))
+      .returning();
+
+    return c.json({
+      success: true,
+      administration: {
+        teamId: updated.teamId,
+        verificationStatus: updated.verificationStatus,
+        verifiedBy: updated.verifiedBy,
+        rejectionNotes: updated.rejectionNotes,
+      },
     });
   },
 );
