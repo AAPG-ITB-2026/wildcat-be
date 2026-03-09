@@ -5,7 +5,7 @@ CREATE TABLE "announcements" (
 	"metadata" jsonb,
 	"created_at" timestamp DEFAULT now()
 );
---> statement-breakpoint
+
 CREATE TABLE "app_config" (
 	"key" text PRIMARY KEY NOT NULL,
 	"value" text NOT NULL,

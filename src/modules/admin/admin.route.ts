@@ -4,9 +4,13 @@ import { eq, sql } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
+import exportRouter from './export.route.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const admin = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+
+admin.route('/export', exportRouter);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/config
@@ -85,6 +89,14 @@ const announcementSchema = z.object({
   scheduledFor: z.string().datetime().optional(),
 });
 
+const audienceMap: Record<string, string> = {
+  'All': 'All',
+  'Paper_Poster': 'Paper and Poster Case Competition',
+  'BCC': 'Business Case Competition',
+  'GnG': 'Geology and Geophysics Case Study Competition (GnG)',
+  'HighSchool': 'Highschool Essay Competition',
+};
+
 admin.post('/announcements', async (c) => {
   const body = await c.req.json();
   const parsed = announcementSchema.safeParse(body);
@@ -103,7 +115,7 @@ admin.post('/announcements', async (c) => {
       authorId: user.id,
       title,
       content,
-      targetAudience,
+      targetAudience: audienceMap[targetAudience] as typeof announcements.$inferInsert['targetAudience'],
       attachmentUrl: attachmentUrl ?? null,
       scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
     })

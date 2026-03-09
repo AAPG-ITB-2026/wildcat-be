@@ -42,6 +42,7 @@ export const authMiddleware = async (c: Context<{ Bindings: Env; Variables: Vari
   await next();
 };
 
+
 // ─────────────────────────────────────────────────────────────────────────────
 // committeeMiddleware({ roles?, divisions? })
 // Validates the authenticated user is an active committee member and
