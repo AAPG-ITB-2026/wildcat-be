@@ -173,3 +173,10 @@ export const announcements = pgTable("announcements", {
     scheduledFor: timestamp("scheduled_for"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const eventRegistrationLog = pgTable("EventRegistrationLog", {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    event_id: uuid("event_id").references(() => events.id).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+

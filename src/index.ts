@@ -8,6 +8,7 @@ import { authMiddleware } from './middlewares/auth.js';
 // import admin from './modules/admin/admin.route.js';
 import type { Env, Variables } from './types/index.js';
 import eventsRoute from './modules/events/events.route.js';
+import analyticsRoute from './modules/analytics/analytics.route.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -24,6 +25,7 @@ app.use('*', cors({
 app.use('/api/landing/*', authMiddleware);
 app.use('/api/admin/*', authMiddleware);
 app.use('/api/upload/*', authMiddleware);
+app.use('/api/admin/analytics/*', authMiddleware);
 
 // 4. Health Check (For Docker/PM2 - BE-15)
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -32,6 +34,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
 app.route('/api/upload', upload);
+app.route('/api/admin/analytics/*', analyticsRoute);
 
 // 6. Start Server
 export default app;
