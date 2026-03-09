@@ -2,13 +2,32 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
-import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events } from '../../db/schema.js';
+import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events, eventRegistrationLogs } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
 import exportRouter from './export.route.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const admin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/me
+// Returns current committee member's info (role, division, etc.)
+// Security: Requires active committee member
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get('/me', committeeMiddleware(), async (c) => {
+  const committee = c.get('committee');
+
+  return c.json({
+    success: true,
+    committee: {
+      id: committee.id,
+      name: committee.name,
+      role: committee.role, // "Admin" | "Committee" (treated as same)
+      division: committee.division,
+      isActive: committee.isActive,
+    },
+  });
+});
 
 admin.route('/export', exportRouter);
 
@@ -127,14 +146,13 @@ admin.post('/announcements', async (c) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/admin/verify
 // Accept or Reject a team's administration documents
-// Body: { teamId: string, action: "Verified" | "Rejected", rejectionNotes?: string }
+// Body: { teamId: string, action: "Verified" | "Rejected" }
 // Security: CommitteeAccount middleware (Admin or Committee role)
 // Response: returns updated verification status + full team info
 // ─────────────────────────────────────────────────────────────────────────────
 const verifySchema = z.object({
   teamId: z.string().uuid('teamId must be a valid UUID'),
   action: z.enum(['Verified', 'Rejected']),
-  rejectionNotes: z.string().min(1).optional(),
 });
 
 admin.post(
@@ -148,11 +166,7 @@ admin.post(
       return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
     }
 
-    const { teamId, action, rejectionNotes } = parsed.data;
-
-    if (action === 'Rejected' && !rejectionNotes) {
-      return c.json({ error: 'rejectionNotes is required when action is "Rejected"' }, 400);
-    }
+    const { teamId, action } = parsed.data;
 
     const committee = c.get('committee');
     const db = createDb(c.env);
@@ -172,7 +186,6 @@ admin.post(
       .set({
         verificationStatus: action,
         verifiedBy: committee.id,
-        rejectionNotes: action === 'Rejected' ? (rejectionNotes ?? null) : null,
       })
       .where(eq(teamAdministration.teamId, teamId))
       .returning();
@@ -196,7 +209,6 @@ admin.post(
         teamId: updated.teamId,
         verificationStatus: updated.verificationStatus,
         verifiedBy: updated.verifiedBy,
-        rejectionNotes: updated.rejectionNotes,
       },
       team,
     });
@@ -262,6 +274,118 @@ admin.get(
     return c.json({
       competitions: rows,
       grandTotal,
+    });
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/analytics/registration-curves
+// Competition & Event registration growth curves with daily and cumulative totals
+// Security: Admin or Committee role
+//
+// Description:
+//   Retrieves time-series registration data showing both competition team signups
+//   and side-event registrations. Returns daily counts and cumulative running totals
+//   for each date to visualize marketing growth curves and signup trends.
+//
+// Response Example:
+//   {
+//     "registrationCurves": [
+//       {
+//         "date": "2024-01-15",
+//         "competitionSignups": 5,
+//         "eventSignups": 12,
+//         "totalSignups": 17,
+//         "cumulativeCompetitionSignups": 45,
+//         "cumulativeEventSignups": 89,
+//         "cumulativeTotalSignups": 134
+//       }
+//     ],
+//     "summary": {
+//       "totalCompetitionSignups": 150,
+//       "totalEventSignups": 280,
+//       "totalSignups": 430
+//     }
+//   }
+//
+// Query Params: None
+// Body: None
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get(
+  '/analytics/registration-curves',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const db = createDb(c.env);
+
+    // Get competition signups grouped by date
+    const competitionSignups = await db
+      .select({
+        date: sql<string>`DATE(${teamAccounts.createdAt})`,
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(teamAccounts)
+      .groupBy(sql`DATE(${teamAccounts.createdAt})`)
+      .orderBy(sql`DATE(${teamAccounts.createdAt})`);
+
+    // Get event registration signups grouped by date
+    const eventSignups = await db
+      .select({
+        date: sql<string>`DATE(${eventRegistrationLogs.createdAt})`,
+        count: sql<number>`cast(count(*) as integer)`,
+      })
+      .from(eventRegistrationLogs)
+      .groupBy(sql`DATE(${eventRegistrationLogs.createdAt})`)
+      .orderBy(sql`DATE(${eventRegistrationLogs.createdAt})`);
+
+    // Merge data by date and calculate cumulative totals
+    const dateMap = new Map<string, { competition: number; events: number }>();
+
+    competitionSignups.forEach((row) => {
+      if (!dateMap.has(row.date)) {
+        dateMap.set(row.date, { competition: 0, events: 0 });
+      }
+      dateMap.get(row.date)!.competition = row.count;
+    });
+
+    eventSignups.forEach((row) => {
+      if (!dateMap.has(row.date)) {
+        dateMap.set(row.date, { competition: 0, events: 0 });
+      }
+      dateMap.get(row.date)!.events = row.count;
+    });
+
+    // Sort dates and calculate cumulative totals
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    let cumulativeCompetition = 0;
+    let cumulativeEvents = 0;
+
+    const registrationCurves = sortedDates.map((date) => {
+      const dailyData = dateMap.get(date)!;
+      cumulativeCompetition += dailyData.competition;
+      cumulativeEvents += dailyData.events;
+
+      return {
+        date,
+        competitionSignups: dailyData.competition,
+        eventSignups: dailyData.events,
+        totalSignups: dailyData.competition + dailyData.events,
+        cumulativeCompetitionSignups: cumulativeCompetition,
+        cumulativeEventSignups: cumulativeEvents,
+        cumulativeTotalSignups: cumulativeCompetition + cumulativeEvents,
+      };
+    });
+
+    // Calculate summary totals
+    const totalCompetitionSignups = competitionSignups.reduce((acc, row) => acc + row.count, 0);
+    const totalEventSignups = eventSignups.reduce((acc, row) => acc + row.count, 0);
+
+    return c.json({
+      registrationCurves,
+      summary: {
+        totalCompetitionSignups,
+        totalEventSignups,
+        totalSignups: totalCompetitionSignups + totalEventSignups,
+      },
     });
   },
 );

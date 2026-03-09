@@ -15,6 +15,13 @@ export const adminMiddleware = async (c: Context<{ Bindings: Env; Variables: Var
         .where(eq(committeeAccounts.id, user.id))
         .limit(1);
 
+    // Console log for debugging
+    console.log('[adminMiddleware]', {
+        uid: user.id,
+        role: committee?.role ?? 'N/A',
+        foundInTable: !!committee,
+    });
+
     if (!committee) {
         return c.json({ error: 'Forbidden: Requires committee access' }, 403);
     }
