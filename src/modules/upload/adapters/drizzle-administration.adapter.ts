@@ -4,6 +4,7 @@ import { teamAdministration } from '../../../db/schema.js';
 import type { AdministrationRepository, AdministrationRecord } from '../upload.types.js';
 import type { DocumentType } from '../upload.schema.js';
 import { UploadError } from '../upload.errors.js';
+import { logInfo, logError } from '../../../middlewares/logger.js';
 
 /**
  * Maps API-level document types to the corresponding
@@ -55,6 +56,32 @@ export function createDrizzleAdministrationRepo(db: PostgresJsDatabase): Adminis
             }
 
             return toRecord(row);
+        },
+
+        async getField(
+            teamId: string,
+            field: DocumentType,
+        ): Promise<string | null> {
+            const column = FIELD_TO_COLUMN[field];
+            logInfo('administration.getField', `Fetching ${field} (column: ${column}) for team ${teamId}`);
+
+            const [row] = await db
+                .select()
+                .from(teamAdministration)
+                .where(eq(teamAdministration.teamId, teamId))
+                .limit(1);
+
+            logInfo('administration.getField', `Query result:`, row);
+
+            if (!row) {
+                logError('administration.getField', `No record found for team ${teamId}`);
+                return null;
+            }
+
+            // Safely access the column value from the row using the camelCase property name
+            const filePath = (row as any)[column];
+            logInfo('administration.getField', `File path for ${field}:`, filePath);
+            return typeof filePath === 'string' ? filePath : null;
         },
     };
 }

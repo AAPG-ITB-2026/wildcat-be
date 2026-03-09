@@ -54,5 +54,13 @@ export const confirmUploadSchema = z.object({
         .min(1, 'filePath is required'),
 });
 
+export const getDocumentSchema = z.object({
+    teamId: z
+        .string()
+        .uuid('teamId must be a valid UUID'),
+    documentType: documentTypeField,
+});
+
 export type SignUploadInput = z.infer<typeof signUploadSchema>;
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
+export type GetDocumentInput = z.infer<typeof getDocumentSchema>;

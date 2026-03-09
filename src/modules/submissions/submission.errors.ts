@@ -10,7 +10,9 @@ export type SubmissionErrorCode =
     | 'FILE_TOO_LARGE'
     | 'INVALID_CONTENT_TYPE'
     | 'SIGNED_URL_FAILED'
-    | 'DB_WRITE_FAILED';
+    | 'DB_WRITE_FAILED'
+    | 'SUBMISSION_NOT_FOUND'
+    | 'FILE_NOT_FOUND';
 
 export class SubmissionError extends Error {
     public readonly code: SubmissionErrorCode;

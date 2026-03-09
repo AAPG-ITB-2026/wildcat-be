@@ -1,5 +1,5 @@
-import type { RequestUrlInput, SaveSubmissionInput } from './submission.schema.js';
-import type { SubmissionServiceDeps, SignedUrlResult, SubmissionRecord } from './submission.types.js';
+import type { RequestUrlInput, SaveSubmissionInput, GetSubmissionInput } from './submission.schema.js';
+import type { SubmissionServiceDeps, SignedUrlResult, SubmissionRecord, GetSubmissionResult } from './submission.types.js';
 import { SubmissionError } from './submission.errors.js';
 
 export async function requestPresignedUrl(
@@ -97,10 +97,20 @@ export async function saveSubmission(
     const uploadedFileName = getFileNameFromStoragePath(storagePath);
     validateFileExtension(uploadedFileName, requirement.allowedExtensions);
 
+    // validateSubmittedStoragePath already returns a clean path without bucket prefix
+    console.log(`[submission] Checking file metadata for path: ${storagePath}`);
     const { data: fileMetadata, error: fileMetadataError } = await storage.headFile(storagePath);
     if (fileMetadataError || !fileMetadata) {
-        throw new SubmissionError('FILE_METADATA_UNAVAILABLE', 'Unable to verify uploaded file metadata');
+        // Enhanced error message with underlying R2 error details
+        const errorDetails = fileMetadataError?.message || 'Unknown error';
+        const errorName = fileMetadataError?.name || '';
+        console.error(`[submission] File metadata check failed for path: ${storagePath}`, { errorName, errorDetails });
+        throw new SubmissionError(
+            'FILE_METADATA_UNAVAILABLE',
+            `Unable to verify uploaded file metadata at path: ${storagePath}. Error: ${errorName ? `${errorName}: ` : ''}${errorDetails}. Ensure the file was uploaded to R2 successfully.`
+        );
     }
+    console.log(`[submission] File metadata verified: contentType=${fileMetadata.contentType}, contentLength=${fileMetadata.contentLength}`);
 
     // Server-side content-type enforcement based on stage requirement
     // allowedExtensions now contains MIME types: "application/pdf, image/png"
@@ -111,7 +121,7 @@ export async function saveSubmission(
     if (!allowedContentTypes.includes(fileMetadata.contentType.toLowerCase())) {
         throw new SubmissionError(
             'INVALID_CONTENT_TYPE',
-            `File has content-type '${fileMetadata.contentType}', allowed: ${requirement.allowedExtensions}`,
+            `File content-type '${fileMetadata.contentType}' not allowed. Expected one of: ${allowedContentTypes.join(', ')}`
         );
     }
 
@@ -132,22 +142,122 @@ export async function saveSubmission(
     return record;
 }
 
-export function validateFileExtension(filename: string, allowedExtensions: string): void {
+export async function getSubmission(
+    teamId: string,
+    input: GetSubmissionInput,
+    deps: SubmissionServiceDeps,
+): Promise<GetSubmissionResult> {
+    const { storage, gatekeeping, submissions, teams } = deps;
+    const { requirement_id } = input;
+
+    console.log(`[submission.getSubmission] Request for teamId=${teamId}, requirementId=${requirement_id}`);
+
+    const team = await teams.findById(teamId);
+    if (!team) {
+        console.log(`[submission.getSubmission] Team not found: ${teamId}`);
+        throw new SubmissionError('TEAM_NOT_FOUND', 'Team not found');
+    }
+
+    console.log(`[submission.getSubmission] Team found: ${teamId}`);
+
+    const eligibility = await gatekeeping.checkTeamEligibility(teamId);
+    console.log(`[submission.getSubmission] Eligibility check:`, eligibility);
+    
+    if (!eligibility.eligible) {
+        console.log(`[submission.getSubmission] Team not eligible: ${eligibility.reason}`);
+        throw new SubmissionError('NOT_VERIFIED', eligibility.reason ?? 'Team is not eligible for submissions');
+    }
+
+    if (!team.currentStageId) {
+        console.log(`[submission.getSubmission] No stage assigned for team ${teamId}`);
+        throw new SubmissionError('STAGE_NOT_ASSIGNED', 'Team has not been assigned to a competition stage yet');
+    }
+
+    console.log(`[submission.getSubmission] Team stage: ${team.currentStageId}`);
+
+    const requirement = await submissions.findRequirementWithStage(requirement_id);
+    console.log(`[submission.getSubmission] Requirement found:`, requirement);
+    
+    if (!requirement) {
+        console.log(`[submission.getSubmission] Requirement not found: ${requirement_id}`);
+        throw new SubmissionError('REQUIREMENT_NOT_FOUND', 'Requirement not found');
+    }
+
+    if (requirement.stageId !== team.currentStageId) {
+        console.log(`[submission.getSubmission] Stage mismatch - requirement stage: ${requirement.stageId}, team stage: ${team.currentStageId}`);
+        throw new SubmissionError(
+            'STAGE_MISMATCH',
+            'Requirement does not belong to your current stage',
+        );
+    }
+
+    const submission = await submissions.getSubmissionByRequirement(teamId, requirement_id);
+    console.log(`[submission.getSubmission] Submission record:`, submission);
+    
+    if (!submission) {
+        console.log(`[submission.getSubmission] No submission found for team ${teamId}, requirement ${requirement_id}`);
+        throw new SubmissionError(
+            'SUBMISSION_NOT_FOUND',
+            'No submission found for this requirement',
+        );
+    }
+
+    // Strip bucket name from path for R2 API
+    const pathWithoutBucket = submission.fileUrl.startsWith('wildcat2026/')
+        ? submission.fileUrl.substring('wildcat2026/'.length)
+        : submission.fileUrl;
+
+    console.log(`[submission.getSubmission] File path (cleaned): ${pathWithoutBucket}`);
+
+    // Get file metadata to determine content type
+    const { data: fileMeta, error } = await storage.headFile(pathWithoutBucket);
+    console.log(`[submission.getSubmission] File metadata:`, { fileMeta, error });
+    
+    if (error || !fileMeta) {
+        console.log(`[submission.getSubmission] File metadata error: ${error?.message}`);
+        throw new SubmissionError('FILE_NOT_FOUND', `No file found at path: ${submission.fileUrl}`);
+    }
+
+    // Create signed download URL
+    const { data: signedUrl, error: urlError } = await storage.createSignedDownloadUrl(
+        pathWithoutBucket,
+        3600, // 1 hour expiry
+    );
+
+    console.log(`[submission.getSubmission] Signed URL created:`, { signedUrl: signedUrl ? 'OK' : 'FAILED', error: urlError?.message });
+
+    if (urlError || !signedUrl) {
+        console.log(`[submission.getSubmission] Signed URL error: ${urlError?.message}`);
+        throw new SubmissionError(
+            'SIGNED_URL_FAILED',
+            `Failed to create signed download URL: ${urlError?.message ?? 'unknown error'}`,
+        );
+    }
+
+    console.log(`[submission.getSubmission] Success - returning signed URL, contentType=${fileMeta.contentType}, documentName=${requirement.documentName}`);
+
+    return {
+        signedUrl,
+        contentType: fileMeta.contentType,
+        documentName: requirement.documentName,
+    };
+}
+
+export function validateFileExtension(filename: string, allowedMimeTypes: string): void {
+    // Note: allowedMimeTypes parameter now contains MIME types like "application/pdf, image/png"
+    // This function performs basic filename validation
+    // Actual MIME type validation happens later via content-type header check
+    
     const dotIndex = filename.lastIndexOf('.');
     if (dotIndex <= 0 || dotIndex === filename.length - 1) {
         throw new SubmissionError('INVALID_EXTENSION', 'Filename must have an extension');
     }
 
     const ext = filename.slice(dotIndex + 1).toLowerCase();
-
-    // allowedExtensions now contains MIME types like "application/pdf, image/png"
-    // Just ensure a file extension exists and was provided
-    // The actual MIME type validation happens at upload confirmation via content-type check
-    // This is a basic sanity check for the filename
     if (!ext || ext.length === 0) {
         throw new SubmissionError(
             'INVALID_EXTENSION',
-            `File must have a valid extension. Allowed MIME types: ${allowedExtensions}`,
+            `File must have a valid extension. Allowed MIME types: ${allowedMimeTypes}`,
         );
     }
 }
@@ -158,8 +268,7 @@ export function buildSubmissionPath(
     filename: string,
 ): string {
     const sanitized = sanitizeFileName(filename);
-    const timestamp = Date.now();
-    return `submissions/${teamId}/${requirementId}/${timestamp}_${sanitized}`;
+    return `submissions/${teamId}/${requirementId}/${sanitized}`;
 }
 
 export function sanitizeFileName(fileName: string): string {
@@ -175,15 +284,29 @@ function validateSubmittedStoragePath(teamId: string, requirementId: string, fil
         throw new SubmissionError('INVALID_STORAGE_PATH', 'Invalid file path');
     }
 
-    const expectedPrefix = `submissions/${teamId}/${requirementId}/`;
-    if (!filePath.startsWith(expectedPrefix)) {
+    // Strip bucket prefix if present for validation
+    const cleanPath = filePath.startsWith('wildcat2026/')
+        ? filePath.substring('wildcat2026/'.length)
+        : filePath;
+
+    // Validate path structure: submissions/{teamId}/{requirementId}/{filename}
+    const pathParts = cleanPath.split('/');
+    if (pathParts.length < 4 || pathParts[0] !== 'submissions') {
         throw new SubmissionError(
             'INVALID_STORAGE_PATH',
-            `file_path must start with '${expectedPrefix}'`,
+            'file_path must follow structure: submissions/{teamId}/{requirementId}/{filename}',
         );
     }
 
-    return filePath;
+    const [, pathTeamId, pathRequirementId] = pathParts;
+    if (pathTeamId !== teamId || pathRequirementId !== requirementId) {
+        throw new SubmissionError(
+            'INVALID_STORAGE_PATH',
+            `file_path teamId/requirementId must match request (expected ${teamId}/${requirementId}, got ${pathTeamId}/${pathRequirementId})`,
+        );
+    }
+
+    return cleanPath;
 }
 
 function getFileNameFromStoragePath(storagePath: string): string {

@@ -41,6 +41,9 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
             options?: { contentType?: string },
         ): Promise<StorageResult<{ signedUrl: string; path: string }>> {
             try {
+                // Ensure the full path includes the bucket for R2 canonical URI
+                const fullKey = `${bucketName}/${path}`;
+                
                 const command = new PutObjectCommand({
                     Bucket: bucketName,
                     Key: path,
@@ -51,8 +54,11 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
                     expiresIn: signedUrlExpiresIn,
                 });
 
+                // Ensure the returned path includes bucket for consistency
+                const fullPath = `${bucketName}/${path}`;
+
                 return {
-                    data: { signedUrl, path },
+                    data: { signedUrl, path: fullPath },
                     error: null,
                 };
             } catch (err) {
@@ -139,6 +145,11 @@ export function createR2Storage(config: R2StorageConfig): StorageClient {
                     error: null,
                 };
             } catch (err) {
+                // Log detailed error info for debugging
+                const errorMessage = err instanceof Error 
+                    ? `${err.name}: ${err.message}` 
+                    : String(err);
+                console.error(`[R2 headFile error] path: ${path}, bucket: ${bucketName}, error: ${errorMessage}`);
                 return {
                     data: null,
                     error: err instanceof Error ? err : new Error(String(err)),
