@@ -8,7 +8,9 @@ import {
   integer, 
   decimal, 
   doublePrecision, 
-  pgEnum 
+  pgEnum,
+  index,
+  uniqueIndex 
 } from "drizzle-orm/pg-core";
 
 // ==========================================
@@ -86,7 +88,10 @@ export const teamAccounts = pgTable("team_accounts", {
   m2Major: varchar("m2_major", { length: 255 }),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  competitionIdx: index("team_accounts_competition_idx").on(table.competitionId),
+  createdAtIdx: index("team_accounts_created_at_idx").on(table.createdAt),
+}));
 
 export const teamAdministration = pgTable("team_administration", {
   teamId: uuid("team_id").primaryKey().references(() => teamAccounts.id).notNull(), // Enforces 1:1 relation
@@ -115,7 +120,9 @@ export const transactions = pgTable("transactions", {
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
   rejectionNotes: text("rejection_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  teamVerificationIdx: index("transactions_team_verification_idx").on(table.teamId, table.verificationStatus),
+}));
 
 // ==========================================
 // 4. SUBMISSIONS & GRADING
@@ -130,7 +137,9 @@ export const submissions = pgTable("submissions", {
   isValid: boolean("is_valid").default(false).notNull(),
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  teamRequirementIdx: uniqueIndex("submissions_team_requirement_idx").on(table.teamId, table.requirementId),
+}));
 
 export const stageScores = pgTable("stage_scores", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
@@ -172,7 +181,9 @@ export const announcements = pgTable("announcements", {
   
   scheduledFor: timestamp("scheduled_for"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  audienceCreatedIdx: index("announcements_audience_created_idx").on(table.targetAudience, table.createdAt),
+}));
 
 // ==========================================
 // APP CONFIG
@@ -200,4 +211,6 @@ export const eventRegistrationLogs = pgTable("event_registration_logs", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   eventId: uuid("event_id").references(() => events.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  createdAtIdx: index("event_logs_created_at_idx").on(table.createdAt),
+}));

@@ -28,6 +28,7 @@ landing.get('/', async (c) => {
     announcement: null // No announcements yet
   };
 
+  c.header('Cache-Control', 'public, max-age=300');
   return c.json(responseData);
 });
 
