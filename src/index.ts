@@ -6,6 +6,7 @@ import admin from './modules/admin/admin.route.js';
 import upload from './modules/upload/upload.route.js';
 import assets from './modules/assets/assets.route.js';
 import submissions from './modules/submissions/submission.route.js';
+import transactionsRoute from './modules/transactions/transaction.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
 import { adminMiddleware } from './middlewares/adminAuth.js';
@@ -35,6 +36,7 @@ app.use('/api/admin/*', authMiddleware);
 app.use('/api/admin/*', adminMiddleware); // Admin middleware dieksekusi setelah authMiddleware
 app.use('/api/upload/*', authMiddleware);
 app.use('/api/submissions/*', authMiddleware);
+app.use('/api/transactions/*', authMiddleware);
 
 // 4. Health Check (For Docker/PM2 - BE-15)
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -46,6 +48,7 @@ app.route('/api/announcements', announcementRoutes);
 app.route('/api/assets', assets);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
+app.route('/api/transactions', transactionsRoute);
 
 console.log('[app.init] Routes registered:');
 console.log('  - /api/landing/*');
@@ -54,6 +57,7 @@ console.log('  - /api/announcements/*');
 console.log('  - /api/assets/*');
 console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
 console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
+console.log('  - /api/transactions/* (POST /request-url, POST /submit-proof)');
 
 // 6. Start Server
 export default app;
