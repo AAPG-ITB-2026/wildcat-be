@@ -44,6 +44,11 @@ export interface AdministrationRepository {
         field: DocumentType,
         filePath: string,
     ): Promise<AdministrationRecord>;
+
+    getField(
+        teamId: string,
+        field: DocumentType,
+    ): Promise<string | null>;
 }
 
 export interface TeamRepository {
@@ -63,4 +68,9 @@ export interface SignedUploadResult {
 
 export interface ConfirmUploadResult {
     administration: AdministrationRecord;
+}
+
+export interface GetDocumentResult {
+    signedUrl: string;
+    contentType: string;
 }

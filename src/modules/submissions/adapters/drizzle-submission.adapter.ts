@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { stageRequirements, submissions } from '../../../db/schema.js';
 import type { SubmissionRepository, StageRequirement, SubmissionRecord } from '../submission.types.js';
@@ -43,6 +43,35 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
 
             if (!row) {
                 throw new SubmissionError('DB_WRITE_FAILED', '[SubmissionRepository] Upsert returned no rows');
+            }
+
+            return {
+                id: row.id,
+                teamId: row.teamId,
+                requirementId: row.requirementId,
+                fileUrl: row.fileUrl,
+                isValid: row.isValid,
+                submittedAt: row.submittedAt,
+            };
+        },
+
+        async getSubmissionByRequirement(
+            teamId: string,
+            requirementId: string,
+        ): Promise<SubmissionRecord | null> {
+            const [row] = await db
+                .select()
+                .from(submissions)
+                .where(
+                    and(
+                        eq(submissions.teamId, teamId),
+                        eq(submissions.requirementId, requirementId)
+                    )
+                )
+                .limit(1);
+
+            if (!row) {
+                return null;
             }
 
             return {

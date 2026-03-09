@@ -32,6 +32,11 @@ export interface SubmissionRepository {
         requirementId: string;
         fileUrl: string;
     }): Promise<SubmissionRecord>;
+
+    getSubmissionByRequirement(
+        teamId: string,
+        requirementId: string,
+    ): Promise<SubmissionRecord | null>;
 }
 
 export interface TeamWithStage {
@@ -55,4 +60,10 @@ export interface SignedUrlResult {
     path: string;
     maxSizeMb: number;
     allowedExtensions: string;
+}
+
+export interface GetSubmissionResult {
+    signedUrl: string;
+    contentType: string;
+    documentName: string;
 }

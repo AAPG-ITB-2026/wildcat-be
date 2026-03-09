@@ -16,7 +16,7 @@ import {
 // ==========================================
 export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
-export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
+export const audienceEnum = pgEnum("target_audience", ["All", "Paper and Poster Case Competition", "Business Case Competition", "Geology and Geophysics Case Study Competition (GnG)", "Highschool Essay Competition"]);
 
 // ==========================================
 // 1. INTERNAL ADMINISTRATION

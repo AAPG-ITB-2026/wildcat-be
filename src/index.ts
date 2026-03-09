@@ -10,11 +10,15 @@ import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
 import { adminMiddleware } from './middlewares/adminAuth.js';
 import { announcementRoutes } from './modules/announcements/announcements.route.js';
+import { logger } from './middlewares/logger.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
+
+// 2. Logger (Capture all requests for debugging)
+app.use('*', logger);
 
 // 2. CORS (WAJIB di atas Auth Middleware agar Preflight OPTIONS lolos)
 app.use('*', cors({
@@ -42,6 +46,14 @@ app.route('/api/announcements', announcementRoutes);
 app.route('/api/assets', assets);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
+
+console.log('[app.init] Routes registered:');
+console.log('  - /api/landing/*');
+console.log('  - /api/admin/*');
+console.log('  - /api/announcements/*');
+console.log('  - /api/assets/*');
+console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
+console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
 
 // 6. Start Server
 export default app;
