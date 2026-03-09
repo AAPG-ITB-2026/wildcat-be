@@ -191,3 +191,13 @@ export const appContent = pgTable("app_content", {
   content: text("content").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ==========================================
+// 6. ANALYTICS LOGS
+// ==========================================
+
+export const eventRegistrationLogs = pgTable("event_registration_logs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  eventId: uuid("event_id").references(() => events.id).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
