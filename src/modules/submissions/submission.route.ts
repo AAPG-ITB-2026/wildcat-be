@@ -3,7 +3,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
 
 import { requestUrlSchema, saveSubmissionSchema, getSubmissionSchema } from './submission.schema.js';
-import { requestPresignedUrl, saveSubmission, getSubmission } from './submission.service.js';
+import { requestPresignedUrl, saveSubmission, getSubmission, listAllSubmissions, getSubmissionStatus } from './submission.service.js';
 import { SubmissionError } from './submission.errors.js';
 import type { SubmissionServiceDeps } from './submission.types.js';
 import { createDrizzleGatekeepingRepo } from './adapters/drizzle-gatekeeping.adapter.js';
@@ -137,6 +137,109 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     SUBMISSION_NOT_FOUND: 404,
     FILE_NOT_FOUND: 404,
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/submissions
+// List all submissions for current team with completion status
+// Security: Requires authenticated team account
+//
+// Description:
+//   Retrieves all submissions for the current team across all requirements
+//   in their current competition stage. Returns detailed information about
+//   each requirement, whether it has been submitted, validation status, and
+//   submission timestamp.
+//
+// Response:
+//   {
+//     "success": true,
+//     "data": {
+//       "submissions": [
+//         {
+//           "requirementId": "uuid",
+//           "documentName": "Case Study Report",
+//           "submitted": true,
+//           "isValid": true,
+//           "submittedAt": "2024-01-15T10:30:00Z",
+//           "fileUrl": "wildcat2026/submissions/..."
+//         },
+//         {
+//           "requirementId": "uuid",
+//           "documentName": "Abstract",
+//           "submitted": false,
+//           "isValid": false,
+//           "submittedAt": null,
+//           "fileUrl": null
+//         }
+//       ],
+//       "totalRequirements": 3,
+//       "submittedCount": 1,
+//       "completionPercentage": 33
+//     }
+//   }
+//
+// Query Params: None
+// Body: None
+// ─────────────────────────────────────────────────────────────────────────────
+submissions.get('/', async (c) => {
+    try {
+        const user = c.get('user');
+        const teamId = user.id;
+
+        console.log(`[submission.GET /] Request for team ${teamId}`);
+
+        const result = await listAllSubmissions(teamId, buildDeps(c.env));
+
+        console.log(`[submission.GET /] Success - returning ${result.submittedCount}/${result.totalRequirements} submissions`);
+        return c.json({ success: true, data: result }, 200);
+    } catch (error) {
+        console.log(`[submission.GET /] Error caught:`, error);
+        return handleServiceError(c, error);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/submissions/status
+// Get submission completion status overview
+// Security: Requires authenticated team account
+//
+// Description:
+//   Returns an overview of the team's submission progress for their current
+//   competition stage, including the count of submitted documents, total
+//   requirements, and overall completion percentage. Use this endpoint for
+//   dashboard progress indicators.
+//
+// Response:
+//   {
+//     "success": true,
+//     "data": {
+//       "totalRequirements": 3,
+//       "submittedCount": 2,
+//       "completionPercentage": 67,
+//       "submissions": [...]
+//     }
+//   }
+//
+// Query Params: None
+// Body: None
+// ─────────────────────────────────────────────────────────────────────────────
+submissions.get('/status', async (c) => {
+    try {
+        const user = c.get('user');
+        const teamId = user.id;
+
+        console.log(`[submission.GET /status] Request for team ${teamId}`);
+
+        const result = await getSubmissionStatus(teamId, buildDeps(c.env));
+
+        console.log(
+            `[submission.GET /status] Success - completion: ${result.completionPercentage}% (${result.submittedCount}/${result.totalRequirements})`,
+        );
+        return c.json({ success: true, data: result }, 200);
+    } catch (error) {
+        console.log(`[submission.GET /status] Error caught:`, error);
+        return handleServiceError(c, error);
+    }
+});
 
 function handleServiceError(c: Context<{ Bindings: Env; Variables: Variables }>, error: unknown) {
     if (error instanceof SubmissionError) {

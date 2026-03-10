@@ -18,6 +18,52 @@ const exportRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 // Generates a multi-sheet .xlsx workbook with competition, events, and
 // daily growth curve data.
 // Security: CommitteeAccount middleware (Admin or Committee roles)
+//
+// Description:
+//   Exports comprehensive metrics into a formatted Excel workbook with three sheets:
+//   
+//   Sheet 1 - Competitions Recap:
+//     - Team count per competition
+//     - Grand total of all registered teams
+//     - Formatted with headers and footer summary row
+//   
+//   Sheet 2 - Events Recap:
+//     - Event name, registered count, and attended count
+//     - Grand totals for registrations and attendance
+//     - Shows participation vs actual attendance rates
+//   
+//   Sheet 3 - Daily Growth Curve:
+//     - Date-based breakdown of competition and event registrations
+//     - Daily count for each category
+//     - Cumulative running total to visualize growth trajectory
+//     - Useful for analyzing marketing effectiveness and signup trends
+//
+// Response Format:
+//   Returns an .xlsx file (Excel workbook) with formatted sheets, styled headers,
+//   and footer rows with grand totals. File name: AAPG_Wildcat_Recap.xlsx
+//
+// Query Params: None
+// Body: None
+//
+// Example File Structure:
+//   Sheet 1 (Competitions Recap):
+//     | Competition Name              | Registered Count |
+//     |-------------------------------|------------------|
+//     | Paper and Poster...           | 45               |
+//     | Business Case Competition     | 38               |
+//     | GRAND TOTAL                   | 83               |
+//
+//   Sheet 2 (Events Recap):
+//     | Event Name         | Registered Count | Attended Count |
+//     |-------------------|------------------|----------------|
+//     | Opening Ceremony   | 150              | 145            |
+//     | GRAND TOTAL        | 500              | 480            |
+//
+//   Sheet 3 (Daily Growth Curve):
+//     | Date       | Category                    | Daily Registrations | Cumulative Total |
+//     |------------|-----------------------------|---------------------|------------------|
+//     | 2024-01-15 | Paper & Poster (Competition)| 5                   | 45               |
+//     | 2024-01-15 | Webinar (Event)             | 12                  | 57               |
 // ─────────────────────────────────────────────────────────────────────────────
 exportRouter.get(
   '/metrics-recap',
