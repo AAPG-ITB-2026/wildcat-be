@@ -15,6 +15,9 @@ import type { Env, Variables } from '../../types/index.js';
 
 const admin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+
+admin.route('/export', exportRouter);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/me
 // Returns current committee member's info (role, division, etc.)
@@ -808,6 +811,21 @@ admin.delete(
   },
 );
 
+  const [created] = await db
+    .insert(announcements)
+    .values({
+      authorId: user.id,
+      title,
+      content,
+      targetAudience: audienceMap[targetAudience] as typeof announcements.$inferInsert['targetAudience'],
+      attachmentUrl: attachmentUrl ?? null,
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+    })
+    .returning();
+
+  return c.json({ success: true, announcement: created }, 201);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/admin/verify
 // Accept or Reject a team's administration documents
@@ -969,6 +987,71 @@ admin.post(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/admin/transactions/:transaction_id/verify
+// Verify or reject a team's manual payment.
+// Body: { status: 'Verified' | 'Rejected', rejection_reason?: string }
+// Security: CommitteeAccount middleware (Admin/Committee roles only)
+// ─────────────────────────────────────────────────────────────────────────────
+const verifyTransactionSchema = z.object({
+  status: z.enum(['Verified', 'Rejected']),
+  rejection_reason: z.string().min(1).optional(),
+});
+
+admin.patch(
+  '/transactions/:transaction_id/verify',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const transactionId = c.req.param('transaction_id');
+    const body = await c.req.json();
+    const parsed = verifyTransactionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
+    }
+
+    const { status, rejection_reason } = parsed.data;
+
+    if (status === 'Rejected' && !rejection_reason) {
+      return c.json({ error: 'rejection_reason is required when status is "Rejected"' }, 400);
+    }
+
+    const committee = c.get('committee');
+    const db = createDb(c.env);
+
+    // Verify transaction exists
+    const [existing] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, transactionId))
+      .limit(1);
+
+    if (!existing) {
+      return c.json({ error: 'Transaction not found' }, 404);
+    }
+
+    const [updated] = await db
+      .update(transactions)
+      .set({
+        verificationStatus: status,
+        verifiedBy: committee.id,
+        rejectionNotes: status === 'Rejected' ? (rejection_reason ?? null) : null,
+      })
+      .where(eq(transactions.id, transactionId))
+      .returning();
+
+    return c.json({
+      success: true,
+      transaction: {
+        id: updated.id,
+        teamId: updated.teamId,
+        verificationStatus: updated.verificationStatus,
+        verifiedBy: updated.verifiedBy,
+        rejectionNotes: updated.rejectionNotes,
+      },
+    });
+  },
+);
+
 // GET /api/admin/documents/teams
 // List all teams with their administration documents and verification statuses
 // Returns signed download URLs for each document
