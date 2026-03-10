@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { competitions, teamAccounts } from '../../db/schema.js';
+import { competitions, teamAccounts, teamAdministration, transactions } from '../../db/schema.js';
 
 export interface Step1RegistrationInput {
   id: string; // Supabase auth user id
@@ -103,6 +103,8 @@ export async function registerTeamStep2(
 /**
  * Check if user has already registered for a team.
  * Used by FE after Google login to determine redirect flow.
+ * 
+ * Returns registration status with document verification and payment status.
  */
 export async function checkRegistrationStatus(
   userId: string,
@@ -112,25 +114,43 @@ export async function checkRegistrationStatus(
   teamId?: string;
   competitionId?: string;
   isCompleted?: boolean; // true if both Step 1 & 2 done (phoneNumber/lineId are non-empty)
+  documentVerificationStatus?: string | null; // 'Verified', 'Rejected', 'Pending', or null
+  paymentVerificationStatus?: string | null; // 'Verified', 'Rejected', 'Pending', or null
+  documentRejectionNotes?: string | null; // Notes provided when a document is rejected
+  paymentRejectionNotes?: string | null; // Notes provided when a payment is rejected
 }> {
+  // Fetch team account with document verification status
   const [team] = await db
     .select()
     .from(teamAccounts)
+    .leftJoin(teamAdministration, eq(teamAccounts.id, teamAdministration.teamId))
     .where(eq(teamAccounts.id, userId))
     .limit(1);
 
-  if (!team) {
+  if (!team || !team.team_accounts) {
     return { registered: false };
   }
 
+  // Fetch most recent transaction (sorted by createdAt DESC)
+  const [latestTransaction] = await db
+    .select()
+    .from(transactions)
+    .where(eq(transactions.teamId, team.team_accounts.id))
+    .orderBy((t: any) => t.createdAt) // DESC by default in Drizzle
+    .limit(1);
+
   // Check if Step 2 is completed (contact fields filled)
-  const isCompleted = !!(team.phoneNumber && team.lineId);
+  const isCompleted = !!(team.team_accounts.phoneNumber && team.team_accounts.lineId);
 
   return {
     registered: true,
-    teamId: team.id,
-    competitionId: team.competitionId,
+    teamId: team.team_accounts.id,
+    competitionId: team.team_accounts.competitionId,
     isCompleted,
+    documentVerificationStatus: team.team_administration?.verificationStatus ?? null,
+    paymentVerificationStatus: latestTransaction?.verificationStatus ?? null,
+    documentRejectionNotes: team.team_administration?.rejectionNotes ?? null,
+    paymentRejectionNotes: latestTransaction?.rejectionNotes ?? null,
   };
 }
 

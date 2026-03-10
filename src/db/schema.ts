@@ -112,7 +112,7 @@ export const transactions = pgTable("transactions", {
   paymentProofUrl: text("payment_proof_url"), // Nullable for Midtrans auto-approvals
   
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
-  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
+  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id), 
   rejectionNotes: text("rejection_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

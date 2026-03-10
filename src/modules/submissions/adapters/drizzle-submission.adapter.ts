@@ -1,8 +1,9 @@
 import { eq, and } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { stageRequirements, submissions } from '../../../db/schema.js';
+import { stageRequirements, submissions, competitionStages } from '../../../db/schema.js';
 import type { SubmissionRepository, StageRequirement, SubmissionRecord } from '../submission.types.js';
 import { SubmissionError } from '../submission.errors.js';
+import { logInfo, logError } from '../../../middlewares/logger.js';
 
 export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionRepository {
     return {
@@ -59,6 +60,11 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
             teamId: string,
             requirementId: string,
         ): Promise<SubmissionRecord | null> {
+            logInfo(
+                'submission.adapter.getByRequirement',
+                `Querying for submission - teamId: '${teamId}' (${typeof teamId}), requirementId: '${requirementId}' (${typeof requirementId})`
+            );
+
             const [row] = await db
                 .select()
                 .from(submissions)
@@ -71,8 +77,17 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
                 .limit(1);
 
             if (!row) {
+                logInfo(
+                    'submission.adapter.getByRequirement',
+                    `No submission found for teamId: '${teamId}', requirementId: '${requirementId}'`
+                );
                 return null;
             }
+
+            logInfo(
+                'submission.adapter.getByRequirement',
+                `Found submission: id='${row.id}', fileUrl='${row.fileUrl}'`
+            );
 
             return {
                 id: row.id,
@@ -82,6 +97,44 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
                 isValid: row.isValid,
                 submittedAt: row.submittedAt,
             };
+        },
+
+        async getAllTeamSubmissions(teamId: string, stageId: string): Promise<Array<SubmissionRecord & { documentName: string; requirementId: string }>> {
+            const rows = await db
+                .select({
+                    id: submissions.id,
+                    teamId: submissions.teamId,
+                    requirementId: submissions.requirementId,
+                    fileUrl: submissions.fileUrl,
+                    isValid: submissions.isValid,
+                    submittedAt: submissions.submittedAt,
+                    documentName: stageRequirements.documentName,
+                })
+                .from(submissions)
+                .innerJoin(stageRequirements, eq(submissions.requirementId, stageRequirements.id))
+                .where(
+                    and(
+                        eq(submissions.teamId, teamId),
+                        eq(stageRequirements.stageId, stageId)
+                    )
+                );
+
+            return rows;
+        },
+
+        async getStageRequirementsList(stageId: string): Promise<StageRequirement[]> {
+            const rows = await db
+                .select({
+                    id: stageRequirements.id,
+                    stageId: stageRequirements.stageId,
+                    documentName: stageRequirements.documentName,
+                    allowedExtensions: stageRequirements.allowedExtensions,
+                    maxSizeMb: stageRequirements.maxSizeMb,
+                })
+                .from(stageRequirements)
+                .where(eq(stageRequirements.stageId, stageId));
+
+            return rows;
         },
     };
 }

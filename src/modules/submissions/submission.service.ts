@@ -1,5 +1,5 @@
 import type { RequestUrlInput, SaveSubmissionInput, GetSubmissionInput } from './submission.schema.js';
-import type { SubmissionServiceDeps, SignedUrlResult, SubmissionRecord, GetSubmissionResult } from './submission.types.js';
+import type { SubmissionServiceDeps, SignedUrlResult, SubmissionRecord, GetSubmissionResult, SubmissionStatus, AllSubmissionsResult } from './submission.types.js';
 import { SubmissionError } from './submission.errors.js';
 
 export async function requestPresignedUrl(
@@ -316,4 +316,62 @@ function getFileNameFromStoragePath(storagePath: string): string {
     }
 
     return fileName;
+}
+
+export async function listAllSubmissions(
+    teamId: string,
+    deps: SubmissionServiceDeps,
+): Promise<AllSubmissionsResult> {
+    const { submissions, teams } = deps;
+
+    const team = await teams.findById(teamId);
+    if (!team) {
+        throw new SubmissionError('TEAM_NOT_FOUND', 'Team not found');
+    }
+
+    if (!team.currentStageId) {
+        throw new SubmissionError('STAGE_NOT_ASSIGNED', 'Team has not been assigned to a competition stage yet');
+    }
+
+    // Get all requirements for the current stage
+    const requirements = await submissions.getStageRequirementsList(team.currentStageId);
+    
+    // Get all submissions for this team in the current stage
+    const teamSubmissions = await submissions.getAllTeamSubmissions(teamId, team.currentStageId);
+
+    // Create a map of submitted requirements for quick lookup
+    const submissionMap = new Map(teamSubmissions.map(s => [s.requirementId, s]));
+
+    // Build the submission status list
+    const submissionStatuses: SubmissionStatus[] = requirements.map(req => {
+        const submission = submissionMap.get(req.id);
+        return {
+            requirementId: req.id,
+            documentName: req.documentName,
+            submitted: !!submission,
+            isValid: submission?.isValid ?? false,
+            submittedAt: submission?.submittedAt ?? null,
+            fileUrl: submission?.fileUrl ?? null,
+        };
+    });
+
+    const submittedCount = submissionStatuses.filter(s => s.submitted).length;
+    const completionPercentage = requirements.length > 0 
+        ? Math.round((submittedCount / requirements.length) * 100) 
+        : 0;
+
+    return {
+        submissions: submissionStatuses,
+        totalRequirements: requirements.length,
+        submittedCount,
+        completionPercentage,
+    };
+}
+
+export async function getSubmissionStatus(
+    teamId: string,
+    deps: SubmissionServiceDeps,
+): Promise<AllSubmissionsResult> {
+    // This is an alias for listAllSubmissions with a more semantic name
+    return listAllSubmissions(teamId, deps);
 }
