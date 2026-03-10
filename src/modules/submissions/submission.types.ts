@@ -37,6 +37,10 @@ export interface SubmissionRepository {
         teamId: string,
         requirementId: string,
     ): Promise<SubmissionRecord | null>;
+
+    getAllTeamSubmissions(teamId: string, stageId: string): Promise<Array<SubmissionRecord & { documentName: string; requirementId: string }>>;
+
+    getStageRequirementsList(stageId: string): Promise<StageRequirement[]>;
 }
 
 export interface TeamWithStage {
@@ -66,4 +70,20 @@ export interface GetSubmissionResult {
     signedUrl: string;
     contentType: string;
     documentName: string;
+}
+
+export interface SubmissionStatus {
+    requirementId: string;
+    documentName: string;
+    submitted: boolean;
+    isValid: boolean;
+    submittedAt: Date | null;
+    fileUrl: string | null;
+}
+
+export interface AllSubmissionsResult {
+    submissions: SubmissionStatus[];
+    totalRequirements: number;
+    submittedCount: number;
+    completionPercentage: number;
 }

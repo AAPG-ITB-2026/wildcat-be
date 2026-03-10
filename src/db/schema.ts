@@ -99,6 +99,7 @@ export const teamAdministration = pgTable("team_administration", {
   
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
+  rejectionNotes: text("rejection_notes"),
 });
 
 export const transactions = pgTable("transactions", {
