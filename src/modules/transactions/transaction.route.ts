@@ -44,9 +44,12 @@ function buildDeps(env: Env): TransactionServiceDeps {
 transactionsRoute.post('/request-url', async (c) => {
     try {
         const body = await c.req.json();
+        console.log('[transactions.request-url] Request body:', JSON.stringify(body));
+        
         const parseResult = requestPaymentUrlSchema.safeParse(body);
 
         if (!parseResult.success) {
+            console.log('[transactions.request-url] Validation error:', z.flattenError(parseResult.error).fieldErrors);
             return c.json(
                 {
                     success: false,
@@ -62,6 +65,8 @@ transactionsRoute.post('/request-url', async (c) => {
 
         const user = c.get('user');
         const result = await generatePaymentSignedUrl(parseResult.data, user.id, buildDeps(c.env));
+        
+        console.log('[transactions.request-url] Generated result:', JSON.stringify(result));
 
         return c.json({ success: true, data: result }, 200);
     } catch (error) {
@@ -99,6 +104,113 @@ transactionsRoute.post('/submit-proof', async (c) => {
 
         return c.json({ success: true, data: result }, 200);
     } catch (error) {
+        return handleServiceError(c, error);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/transactions
+// Retrieve the team's latest payment submission details.
+// Security: Participant Auth.
+//
+// Description:
+//   Allows participants to preview their current payment submission including
+//   the proof URL, payment method, verification status, and timestamps.
+//
+// Response:
+//   {
+//     "success": true,
+//     "data": {
+//       "id": "uuid",
+//       "teamId": "uuid",
+//       "amount": "500000.00",
+//       "paymentType": "Bank Transfer",
+//       "paymentProofUrl": "wildcat2026/payments/...",
+//       "verificationStatus": "Pending" | "Verified" | "Rejected",
+//       "rejectionNotes": "string or null",
+//       "createdAt": "2024-01-15T10:30:00Z"
+//     }
+//   }
+//
+// Error Responses:
+//   - 404: Team or transaction not found
+//   - 500: Database error
+// ─────────────────────────────────────────────────────────────────────────────
+transactionsRoute.get('/', async (c) => {
+    try {
+        const user = c.get('user');
+        const db = createDb(c.env);
+        const transactionRepo = createDrizzleTransactionRepo(db);
+        const storage = getStorage(c.env);
+
+        console.log('[transactions.get] Fetching transaction for team:', user.id);
+
+        // Fetch the team's latest transaction
+        const transaction = await transactionRepo.findByTeamId(user.id);
+
+        if (!transaction) {
+            console.log('[transactions.get] No transaction found for team:', user.id);
+            return c.json(
+                {
+                    success: false,
+                    error: { code: 'TRANSACTION_NOT_FOUND', message: 'No payment submission found' },
+                },
+                404,
+            );
+        }
+
+        console.log('[transactions.get] Found transaction:', {
+            id: transaction.id,
+            paymentProofUrl: transaction.paymentProofUrl,
+            verificationStatus: transaction.verificationStatus,
+        });
+
+        // Generate signed download URL if payment proof exists
+        let signedProofUrl: string | null = null;
+        if (transaction.paymentProofUrl) {
+            try {
+                const pathWithoutBucket = transaction.paymentProofUrl.startsWith('wildcat2026/')
+                    ? transaction.paymentProofUrl.substring('wildcat2026/'.length)
+                    : transaction.paymentProofUrl;
+
+                console.log('[transactions.get] Creating signed URL for path:', pathWithoutBucket);
+
+                const { data: url, error: urlError } = await storage.createSignedDownloadUrl(
+                    pathWithoutBucket,
+                    3600, // 1 hour
+                );
+
+                if (!urlError && url) {
+                    signedProofUrl = url;
+                    console.log('[transactions.get] Successfully created signed URL');
+                } else {
+                    console.log('[transactions.get] Failed to create signed URL:', urlError?.message);
+                }
+            } catch (error) {
+                console.log('[transactions.get] Error creating signed URL:', error);
+            }
+        } else {
+            console.log('[transactions.get] No paymentProofUrl in transaction');
+        }
+
+        return c.json(
+            {
+                success: true,
+                data: {
+                    id: transaction.id,
+                    teamId: transaction.teamId,
+                    amount: transaction.amount,
+                    paymentType: transaction.paymentType,
+                    paymentProofUrl: signedProofUrl, // Return signed URL, not raw path
+                    verificationStatus: transaction.verificationStatus,
+                    rejectionNotes: transaction.rejectionNotes,
+                    createdAt: transaction.createdAt,
+                },
+            },
+            200,
+        );
+    } catch (error) {
+        console.error('[transactions.get] Error:', error);
         return handleServiceError(c, error);
     }
 });

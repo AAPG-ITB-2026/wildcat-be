@@ -72,7 +72,7 @@ admin.get(
   committeeMiddleware({ roles: ['Admin', 'Committee'] }),
   async (c) => {
     const startTime = Date.now();
-    logInfo('admin.committee', 'Fetching all committee members');
+    logInfo('admin.committee', 'Fetching all active committee members (excluding admins)');
 
     try {
       const db = createDb(c.env);
@@ -85,12 +85,16 @@ admin.get(
           division: committeeAccounts.division,
           isActive: committeeAccounts.isActive,
         })
-        .from(committeeAccounts);
+        .from(committeeAccounts)
+        .where(
+          // Only fetch active Committee members (exclude Admins for safety)
+          sql`${committeeAccounts.isActive} = true AND ${committeeAccounts.role} = 'Committee'`
+        );
 
       const duration = Date.now() - startTime;
       logInfo(
         'admin.committee',
-        `Successfully fetched ${committeeMembers.length} committee members (${duration}ms)`,
+        `Successfully fetched ${committeeMembers.length} active committee members (${duration}ms)`,
       );
 
       return c.json({
@@ -152,11 +156,10 @@ admin.get(
 //   - 500: Database error
 // ─────────────────────────────────────────────────────────────────────────────
 const createCommitteeMemberSchema = z.object({
-  id: z.string().uuid('id must be a valid UUID'),
+  email: z.string().email('email must be a valid email address'),
   name: z.string().min(1, 'name cannot be empty'),
   role: z.enum(['Admin', 'Committee']),
   division: z.string().min(1, 'division cannot be empty'),
-  isActive: z.boolean().default(true),
 });
 
 admin.post(
@@ -174,31 +177,100 @@ admin.post(
       );
     }
 
-    const { id, name, role, division, isActive } = parsed.data;
+    const { email, name, role, division } = parsed.data;
     const currentAdmin = c.get('committee');
     const db = createDb(c.env);
 
-    logInfo('admin.committee.upsert', `Upserting committee member ${id}`);
+    logInfo('admin.committee.create', `Creating new committee member: ${email}`);
 
     try {
-      // Upsert: insert or update in one operation
-      const [result] = await db
-        .insert(committeeAccounts)
-        .values({
-          id,
-          name,
-          role,
-          division,
-          isActive,
-        })
-        .onConflictDoUpdate({
-          target: committeeAccounts.id,
-          set: {
+      // Step 1: Create user in Supabase Auth
+      const supabaseUrl = c.env.SUPABASE_URL;
+      const supabaseServiceKey = c.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        logError(
+          'admin.committee.create',
+          'Missing Supabase configuration (SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)',
+        );
+        return c.json(
+          {
+            error: 'Server configuration error',
+            details: 'Supabase credentials not configured',
+          },
+          500,
+        );
+      }
+
+      const authResponse = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseServiceKey,
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          email,
+          user_metadata: {
             name,
             role,
             division,
-            isActive,
           },
+          email_confirm: true, // Auto-confirm email
+        }),
+      });
+
+      if (!authResponse.ok) {
+        const authError = await authResponse.text();
+        logError(
+          'admin.committee.create',
+          `Failed to create Supabase user: ${authResponse.status} ${authError}`,
+        );
+        return c.json(
+          {
+            error: 'Failed to create Supabase user',
+            details: authError,
+          },
+          400,
+        );
+      }
+
+      const authData = (await authResponse.json()) as { id?: string; [key: string]: unknown };
+      logInfo(
+        'admin.committee.create',
+        `Supabase response: ${JSON.stringify(authData)}`,
+      );
+
+      if (!authData || !authData.id) {
+        logError(
+          'admin.committee.create',
+          `Supabase response missing id: ${JSON.stringify(authData)}`,
+        );
+        return c.json(
+          {
+            error: 'Failed to create Supabase user',
+            details: 'Invalid Supabase response - missing user ID',
+          },
+          400,
+        );
+      }
+
+      const userId = authData.id;
+
+      logInfo(
+        'admin.committee.create',
+        `Created Supabase user ${userId} for ${email}`,
+      );
+
+      // Step 2: Insert into committeeAccounts table
+      const [result] = await db
+        .insert(committeeAccounts)
+        .values({
+          id: userId, // Use Supabase auth user ID
+          name,
+          role,
+          division,
+          isActive: true,
         })
         .returning({
           id: committeeAccounts.id,
@@ -210,23 +282,24 @@ admin.post(
 
       const duration = Date.now() - startTime;
       logInfo(
-        'admin.committee.upsert',
-        `Successfully upserted committee member ${id} (by ${currentAdmin.id}) in ${duration}ms`,
+        'admin.committee.create',
+        `Successfully created committee member ${userId} (${email}) (by ${currentAdmin.id}) in ${duration}ms`,
       );
 
       return c.json(
         {
           success: true,
-          message: 'Committee member created successfully',
+          message: 'Committee member created and linked to Supabase Auth',
           member: result,
+          note: 'User will receive an email confirmation. Set their password via Supabase dashboard if needed.',
         },
-        200,
+        201,
       );
     } catch (error) {
       const duration = Date.now() - startTime;
       logError(
-        'admin.committee.upsert',
-        `Error upserting committee member ${id} (${duration}ms):`,
+        'admin.committee.create',
+        `Error creating committee member (${duration}ms):`,
         error,
       );
       return c.json(
@@ -358,18 +431,27 @@ admin.patch(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE /api/admin/committee/:memberId
-// Delete a committee member
+// Deactivate a committee member
 // Security: Admin role ONLY
 //
 // Description:
-//   Permanently removes a committee member from the system. This action cannot
-//   be undone. Only admins can delete committee members.
+//   Deactivates a committee member (soft delete). Instead of permanently removing them
+//   from the database, we mark them as inactive. This preserves their audit trail
+//   (verification history, created content, etc.) while preventing them from accessing
+//   admin features.
 //
 // Response:
 //   {
 //     "success": true,
-//     "message": "Committee member deleted successfully",
-//     "memberId": "uuid"
+//     "message": "Committee member deactivated successfully",
+//     "memberId": "uuid",
+//     "member": {
+//       "id": "uuid",
+//       "name": "Name",
+//       "role": "Admin" | "Committee",
+//       "division": "string",
+//       "isActive": false
+//     }
 //   }
 //
 // Path Params: memberId (UUID)
@@ -385,13 +467,13 @@ admin.delete(
     const startTime = Date.now();
     const memberId = c.req.param('memberId');
 
-    logInfo('admin.committee.delete', `Deleting committee member ${memberId}`);
+    logInfo('admin.committee.deactivate', `Deactivating committee member ${memberId}`);
 
     try {
       const db = createDb(c.env);
       const currentAdmin = c.get('committee');
 
-      // Verify committee member exists before deleting
+      // Verify committee member exists before deactivating
       const [memberExists] = await db
         .select({ id: committeeAccounts.id, name: committeeAccounts.name })
         .from(committeeAccounts)
@@ -399,24 +481,35 @@ admin.delete(
         .limit(1);
 
       if (!memberExists) {
-        logError('admin.committee.delete', `Committee member not found: ${memberId}`);
+        logError('admin.committee.deactivate', `Committee member not found: ${memberId}`);
         return c.json({ error: 'Committee member not found' }, 404);
       }
 
-      // Delete the committee member
-      await db.delete(committeeAccounts).where(eq(committeeAccounts.id, memberId));
+      // Deactivate the committee member (soft delete)
+      const [result] = await db
+        .update(committeeAccounts)
+        .set({ isActive: false })
+        .where(eq(committeeAccounts.id, memberId))
+        .returning({
+          id: committeeAccounts.id,
+          name: committeeAccounts.name,
+          role: committeeAccounts.role,
+          division: committeeAccounts.division,
+          isActive: committeeAccounts.isActive,
+        });
 
       const duration = Date.now() - startTime;
       logInfo(
-        'admin.committee.delete',
-        `Successfully deleted committee member ${memberId} (by ${currentAdmin.id}) in ${duration}ms`,
+        'admin.committee.deactivate',
+        `Successfully deactivated committee member ${memberId} (by ${currentAdmin.id}) in ${duration}ms`,
       );
 
       return c.json(
         {
           success: true,
-          message: 'Committee member deleted successfully',
+          message: 'Committee member deactivated successfully',
           memberId,
+          member: result,
         },
         200,
       );
@@ -811,21 +904,6 @@ admin.delete(
   },
 );
 
-  const [created] = await db
-    .insert(announcements)
-    .values({
-      authorId: user.id,
-      title,
-      content,
-      targetAudience: audienceMap[targetAudience] as typeof announcements.$inferInsert['targetAudience'],
-      attachmentUrl: attachmentUrl ?? null,
-      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
-    })
-    .returning();
-
-  return c.json({ success: true, announcement: created }, 201);
-});
-
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/admin/verify
 // Accept or Reject a team's administration documents
@@ -987,6 +1065,416 @@ admin.post(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/transactions
+// List all payment submissions with verification status.
+// Security: Admin or Committee role
+//
+// Description:
+//   Retrieves all team payment submissions grouped by verification status
+//   (Pending, Verified, Rejected). Allows admins to review and manage
+//   payment verifications across all teams.
+//
+// Response:
+//   {
+//     "success": true,
+//     "data": {
+//       "total": 25,
+//       "byStatus": {
+//         "Pending": [
+//           {
+//             "id": "uuid",
+//             "teamId": "uuid",
+//             "teamName": "Team A",
+//             "amount": "500000.00",
+//             "paymentType": "Bank Transfer",
+//             "verificationStatus": "Pending",
+//             "createdAt": "2024-01-15T10:30:00Z"
+//           }
+//         ],
+//         "Verified": [...],
+//         "Rejected": [...]
+//       }
+//     }
+//   }
+//
+// Query Params: None
+// Body: None
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get(
+  '/transactions',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const startTime = Date.now();
+    console.log('[admin.transactions.list] ===== START GET /transactions =====');
+    logInfo('admin.transactions.list', 'Fetching all payment transactions');
+
+    try {
+      const user = c.get('user');
+      const committee = c.get('committee');
+      
+      console.log('[admin.transactions.list] ─── REQUEST CONTEXT ───');
+      console.log('[admin.transactions.list] User ID:', user?.id);
+      console.log('[admin.transactions.list] User ID type:', typeof user?.id);
+      console.log('[admin.transactions.list] Committee ID:', committee?.id);
+      console.log('[admin.transactions.list] Committee role:', committee?.role);
+      console.log('[admin.transactions.list] Committee division:', committee?.division);
+      console.log('[admin.transactions.list] Committee is active:', committee?.isActive);
+
+      const db = createDb(c.env);
+      const storage = getStorage(c.env);
+
+      // Fetch all transactions with team and competition info
+      console.log('[admin.transactions.list] ─── DATABASE QUERY ───');
+      console.log('[admin.transactions.list] ⏳ Executing SELECT query on transactions table with competition join...');
+      const allTransactions = await db
+        .select({
+          id: transactions.id,
+          teamId: transactions.teamId,
+          teamName: teamAccounts.teamName,
+          competitionName: competitions.name,
+          amount: transactions.amount,
+          paymentType: transactions.paymentType,
+          paymentProofUrl: transactions.paymentProofUrl,
+          verificationStatus: transactions.verificationStatus,
+          rejectionNotes: transactions.rejectionNotes,
+          verifiedBy: transactions.verifiedBy,
+          createdAt: transactions.createdAt,
+        })
+        .from(transactions)
+        .innerJoin(teamAccounts, eq(transactions.teamId, teamAccounts.id))
+        .innerJoin(competitions, eq(teamAccounts.competitionId, competitions.id))
+        .orderBy(desc(transactions.createdAt));
+
+      console.log('[admin.transactions.list] ✅ Database query completed');
+      console.log('[admin.transactions.list] Total transactions returned:', allTransactions.length);
+
+      logInfo(
+        'admin.transactions.list',
+        `Found ${allTransactions.length} total transactions`,
+      );
+
+      // Generate signed URLs for each transaction
+      console.log('[admin.transactions.list] ─── GENERATING SIGNED URLS ───');
+      console.log('[admin.transactions.list] ⏳ Processing signed URLs for all transactions...');
+      const transactionsWithUrls = await Promise.all(
+        allTransactions.map(async (txn) => {
+          let signedUrl: string | null = null;
+          if (txn.paymentProofUrl) {
+            try {
+              const pathWithoutBucket = txn.paymentProofUrl.startsWith('wildcat2026/')
+                ? txn.paymentProofUrl.substring('wildcat2026/'.length)
+                : txn.paymentProofUrl;
+
+              const { data: url, error: urlError } = await storage.createSignedDownloadUrl(
+                pathWithoutBucket,
+                3600,
+              );
+
+              if (!urlError && url) {
+                signedUrl = url;
+                console.log(`[admin.transactions.list] ✅ Generated signed URL for transaction ${txn.id}`);
+              } else {
+                console.log(`[admin.transactions.list] ❌ Failed to generate URL for ${txn.id}: ${urlError?.message}`);
+              }
+            } catch (error) {
+              console.log(`[admin.transactions.list] ❌ Error generating URL for ${txn.id}:`, error);
+            }
+          }
+
+          return {
+            id: txn.id,
+            teamId: txn.teamId,
+            teamName: txn.teamName,
+            competitionName: txn.competitionName,
+            amount: txn.amount,
+            paymentType: txn.paymentType,
+            paymentProofUrl: signedUrl,
+            verificationStatus: txn.verificationStatus,
+            rejectionNotes: txn.rejectionNotes,
+            verifiedBy: txn.verifiedBy,
+            createdAt: txn.createdAt,
+          };
+        }),
+      );
+
+      console.log('[admin.transactions.list] ✅ All signed URLs generated');
+
+      console.log('[admin.transactions.list] ─── FULL TRANSACTION DATA ───');
+      console.log('[admin.transactions.list] All transactions:', JSON.stringify(transactionsWithUrls, null, 2));
+
+      // Group by verification status
+      console.log('[admin.transactions.list] ─── GROUPING BY STATUS ───');
+      const byStatus: Record<string, typeof transactionsWithUrls> = {
+        Pending: [],
+        Verified: [],
+        Rejected: [],
+      };
+
+      for (const txn of transactionsWithUrls) {
+        const status = txn.verificationStatus as keyof typeof byStatus;
+        if (byStatus[status]) {
+          byStatus[status].push(txn);
+        }
+      }
+
+      console.log('[admin.transactions.list] Status breakdown:', {
+        Pending: byStatus.Pending.length,
+        Verified: byStatus.Verified.length,
+        Rejected: byStatus.Rejected.length,
+      });
+
+      if (byStatus.Pending.length > 0) {
+        console.log('[admin.transactions.list] PENDING TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Pending, null, 2));
+      }
+      
+      if (byStatus.Verified.length > 0) {
+        console.log('[admin.transactions.list] VERIFIED TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Verified, null, 2));
+      }
+      
+      if (byStatus.Rejected.length > 0) {
+        console.log('[admin.transactions.list] REJECTED TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Rejected, null, 2));
+      }
+
+      const duration = Date.now() - startTime;
+      console.log('[admin.transactions.list] ─── RESPONSE ───');
+      console.log('[admin.transactions.list] Response structure:', {
+        success: true,
+        totalTransactions: transactionsWithUrls.length,
+        pendingCount: byStatus.Pending.length,
+        verifiedCount: byStatus.Verified.length,
+        rejectedCount: byStatus.Rejected.length,
+      });
+      
+      console.log(`[admin.transactions.list] ===== SUCCESS (${duration}ms) =====`);
+      logInfo(
+        'admin.transactions.list',
+        `Successfully fetched transactions - Pending: ${byStatus.Pending.length}, Verified: ${byStatus.Verified.length}, Rejected: ${byStatus.Rejected.length} (${duration}ms)`,
+      );
+
+      return c.json({
+        success: true,
+        data: {
+          total: transactionsWithUrls.length,
+          byStatus,
+        },
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[admin.transactions.list] ===== ERROR (${duration}ms) =====`);
+      console.error('[admin.transactions.list] Error type:', error?.constructor?.name);
+      console.error('[admin.transactions.list] Error details:', error);
+      if (error instanceof Error) {
+        console.error('[admin.transactions.list] Error message:', error.message);
+        console.error('[admin.transactions.list] Error stack:', error.stack);
+      }
+      logError(
+        'admin.transactions.list',
+        `Error fetching transactions (${duration}ms):`,
+        error,
+      );
+      return c.json(
+        { error: 'Failed to fetch transactions', details: String(error) },
+        500,
+      );
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/admin/transactions/:transaction_id
+// Preview a team's payment submission with signed download URL.
+// Security: Admin or Committee role
+//
+// Description:
+//   Allows admins to view payment submission details and preview the payment
+//   proof file before verifying or rejecting it. Returns a 1-hour signed download
+//   URL for secure file access without exposing R2 credentials.
+//
+// Response:
+//   {
+//     "success": true,
+//     "data": {
+//       "id": "uuid",
+//       "teamId": "uuid",
+//       "teamName": "Team A",
+//       "amount": "500000.00",
+//       "paymentType": "Bank Transfer",
+//       "paymentProofUrl": "signed-download-url",
+//       "verificationStatus": "Pending" | "Verified" | "Rejected",
+//       "rejectionNotes": "string or null",
+//       "verifiedBy": "admin-uuid or null",
+//       "createdAt": "2024-01-15T10:30:00Z"
+//     }
+//   }
+//
+// Path Params: transaction_id (UUID)
+//
+// Error Responses:
+//   - 404: Transaction not found
+//   - 500: Database error
+// ─────────────────────────────────────────────────────────────────────────────
+admin.get(
+  '/transactions/:transaction_id',
+  committeeMiddleware({ roles: ['Admin', 'Committee'] }),
+  async (c) => {
+    const startTime = Date.now();
+    const transactionId = c.req.param('transaction_id');
+
+    console.log('[admin.transactions.preview] ===== START GET /transactions/:transaction_id =====');
+    
+    console.log('[admin.transactions.preview] ─── PATH PARAMETERS ───');
+    console.log('[admin.transactions.preview] Transaction ID:', transactionId);
+    console.log('[admin.transactions.preview] Transaction ID type:', typeof transactionId);
+    console.log('[admin.transactions.preview] Transaction ID length:', transactionId?.length);
+
+    logInfo('admin.transactions.preview', `Previewing transaction ${transactionId}`);
+
+    try {
+      const user = c.get('user');
+      const committee = c.get('committee');
+      
+      console.log('[admin.transactions.preview] ─── REQUEST CONTEXT ───');
+      console.log('[admin.transactions.preview] User ID:', user?.id);
+      console.log('[admin.transactions.preview] User ID type:', typeof user?.id);
+      console.log('[admin.transactions.preview] Committee ID:', committee?.id);
+      console.log('[admin.transactions.preview] Committee role:', committee?.role);
+      console.log('[admin.transactions.preview] Committee division:', committee?.division);
+      
+      const db = createDb(c.env);
+      const storage = getStorage(c.env);
+
+      // Fetch transaction with team info
+      console.log('[admin.transactions.preview] ─── DATABASE QUERY ───');
+      console.log('[admin.transactions.preview] ⏳ Querying for transaction:', transactionId);
+      const [transaction] = await db
+        .select({
+          id: transactions.id,
+          teamId: transactions.teamId,
+          teamName: teamAccounts.teamName,
+          amount: transactions.amount,
+          paymentType: transactions.paymentType,
+          paymentProofUrl: transactions.paymentProofUrl,
+          verificationStatus: transactions.verificationStatus,
+          rejectionNotes: transactions.rejectionNotes,
+          verifiedBy: transactions.verifiedBy,
+          createdAt: transactions.createdAt,
+        })
+        .from(transactions)
+        .innerJoin(teamAccounts, eq(transactions.teamId, teamAccounts.id))
+        .where(eq(transactions.id, transactionId))
+        .limit(1);
+
+      if (!transaction) {
+        console.log('[admin.transactions.preview] ❌ Transaction not found:', transactionId);
+        logError('admin.transactions.preview', `Transaction not found: ${transactionId}`);
+        return c.json({ error: 'Transaction not found' }, 404);
+      }
+
+      console.log('[admin.transactions.preview] ✅ Found transaction in database');
+      console.log('[admin.transactions.preview] ─── FULL TRANSACTION DATA ───');
+      console.log('[admin.transactions.preview] Transaction object:', JSON.stringify(transaction, null, 2));
+
+      // Generate signed download URL if payment proof exists
+      let signedUrl: string | null = null;
+      if (transaction.paymentProofUrl) {
+        console.log('[admin.transactions.preview] ─── SIGNED URL GENERATION ───');
+        console.log('[admin.transactions.preview] ⏳ Payment proof URL found:', transaction.paymentProofUrl);
+        try {
+          const pathWithoutBucket = transaction.paymentProofUrl.startsWith('wildcat2026/')
+            ? transaction.paymentProofUrl.substring('wildcat2026/'.length)
+            : transaction.paymentProofUrl;
+
+          console.log('[admin.transactions.preview] Original path:', transaction.paymentProofUrl);
+          console.log('[admin.transactions.preview] Path without bucket:', pathWithoutBucket);
+          console.log('[admin.transactions.preview] ⏳ Calling storage.createSignedDownloadUrl()...');
+
+          const { data: url, error: urlError } = await storage.createSignedDownloadUrl(
+            pathWithoutBucket,
+            3600, // 1 hour
+          );
+
+          console.log('[admin.transactions.preview] API call response:', {
+            hasUrl: !!url,
+            hasError: !!urlError,
+            errorMessage: urlError?.message,
+          });
+
+          if (!urlError && url) {
+            signedUrl = url;
+            console.log('[admin.transactions.preview] ✅ Successfully created signed URL');
+            console.log('[admin.transactions.preview] Full signed URL:', url);
+            console.log('[admin.transactions.preview] Signed URL length:', url.length);
+          } else {
+            console.log('[admin.transactions.preview] ❌ Failed to create signed URL:', urlError?.message);
+            logInfo(
+              'admin.transactions.preview',
+              `Could not create signed URL for transaction ${transactionId}`,
+            );
+          }
+        } catch (error) {
+          console.log('[admin.transactions.preview] ❌ Exception during signed URL generation:', error);
+          if (error instanceof Error) {
+            console.log('[admin.transactions.preview] Error message:', error.message);
+            console.log('[admin.transactions.preview] Error stack:', error.stack);
+          }
+          logInfo(
+            'admin.transactions.preview',
+            `Error creating signed URL for transaction ${transactionId}`,
+          );
+        }
+      } else {
+        console.log('[admin.transactions.preview] ⚠️  No payment proof URL in transaction');
+      }
+
+      const duration = Date.now() - startTime;
+      console.log('[admin.transactions.preview] ─── RESPONSE OBJECT ───');
+      const responseObject = {
+        success: true,
+        data: {
+          id: transaction.id,
+          teamId: transaction.teamId,
+          teamName: transaction.teamName,
+          amount: transaction.amount,
+          paymentType: transaction.paymentType,
+          paymentProofUrl: signedUrl,
+          verificationStatus: transaction.verificationStatus,
+          rejectionNotes: transaction.rejectionNotes,
+          verifiedBy: transaction.verifiedBy,
+          createdAt: transaction.createdAt,
+        },
+      };
+      console.log('[admin.transactions.preview] Full response object:', JSON.stringify(responseObject, null, 2));
+
+      console.log(`[admin.transactions.preview] ===== SUCCESS (${duration}ms) =====`);
+      logInfo(
+        'admin.transactions.preview',
+        `Successfully previewed transaction ${transactionId} (${duration}ms)`,
+      );
+
+      return c.json(responseObject, 200);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[admin.transactions.preview] ===== ERROR (${duration}ms) =====`);
+      console.error('[admin.transactions.preview] Error details:', error);
+      if (error instanceof Error) {
+        console.error('[admin.transactions.preview] Error message:', error.message);
+        console.error('[admin.transactions.preview] Error stack:', error.stack);
+      }
+      logError(
+        'admin.transactions.preview',
+        `Error previewing transaction (${duration}ms):`,
+        error,
+      );
+      return c.json(
+        { error: 'Failed to preview transaction', details: String(error) },
+        500,
+      );
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/transactions/:transaction_id/verify
 // Verify or reject a team's manual payment.
 // Body: { status: 'Verified' | 'Rejected', rejection_reason?: string }
@@ -1001,54 +1489,138 @@ admin.patch(
   '/transactions/:transaction_id/verify',
   committeeMiddleware({ roles: ['Admin', 'Committee'] }),
   async (c) => {
+    const startTime = Date.now();
     const transactionId = c.req.param('transaction_id');
-    const body = await c.req.json();
-    const parsed = verifyTransactionSchema.safeParse(body);
+    
+    console.log('[admin.transactions.verify] ===== START PATCH /transactions/:transaction_id/verify =====');
+    
+    console.log('[admin.transactions.verify] ─── PATH PARAMETERS ───');
+    console.log('[admin.transactions.verify] Transaction ID:', transactionId);
+    console.log('[admin.transactions.verify] Transaction ID type:', typeof transactionId);
+    
+    try {
+      console.log('[admin.transactions.verify] ─── REQUEST BODY ───');
+      const body = await c.req.json();
+      console.log('[admin.transactions.verify] Raw request body:', JSON.stringify(body, null, 2));
+      console.log('[admin.transactions.verify] Body keys:', Object.keys(body));
+      console.log('[admin.transactions.verify] Body value types:', {
+        status: typeof body.status,
+        rejection_reason: typeof body.rejection_reason,
+      });
+      
+      console.log('[admin.transactions.verify] ─── VALIDATION ───');
+      const parsed = verifyTransactionSchema.safeParse(body);
+      console.log('[admin.transactions.verify] Zod parse result:', {
+        success: parsed.success,
+        errors: parsed.success ? null : JSON.stringify(parsed.error.flatten(), null, 2),
+      });
 
-    if (!parsed.success) {
-      return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
-    }
+      if (!parsed.success) {
+        console.log('[admin.transactions.verify] ❌ Validation failed');
+        return c.json({ error: 'Invalid body', details: parsed.error.flatten() }, 400);
+      }
 
-    const { status, rejection_reason } = parsed.data;
+      const { status, rejection_reason } = parsed.data;
+      console.log('[admin.transactions.verify] Parsed data (after Zod validation):', {
+        status,
+        rejection_reason,
+        hasRejectionReason: !!rejection_reason,
+        rejectionReasonLength: rejection_reason?.length,
+      });
 
-    if (status === 'Rejected' && !rejection_reason) {
-      return c.json({ error: 'rejection_reason is required when status is "Rejected"' }, 400);
-    }
+      if (status === 'Rejected' && !rejection_reason) {
+        console.log('[admin.transactions.verify] ❌ Rejected status requires rejection_reason');
+        return c.json({ error: 'rejection_reason is required when status is "Rejected"' }, 400);
+      }
 
-    const committee = c.get('committee');
-    const db = createDb(c.env);
+      console.log('[admin.transactions.verify] ─── REQUEST CONTEXT ───');
+      const user = c.get('user');
+      const committee = c.get('committee');
+      console.log('[admin.transactions.verify] User ID:', user?.id);
+      console.log('[admin.transactions.verify] User ID type:', typeof user?.id);
+      console.log('[admin.transactions.verify] Committee ID:', committee?.id);
+      console.log('[admin.transactions.verify] Committee role:', committee?.role);
+      console.log('[admin.transactions.verify] Committee division:', committee?.division);
+      console.log('[admin.transactions.verify] Committee name:', committee?.name);
+      console.log('[admin.transactions.verify] Committee is active:', committee?.isActive);
+      
+      const db = createDb(c.env);
 
-    // Verify transaction exists
-    const [existing] = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.id, transactionId))
-      .limit(1);
+      // Verify transaction exists
+      console.log('[admin.transactions.verify] ─── DATABASE QUERY (BEFORE) ───');
+      console.log('[admin.transactions.verify] ⏳ Querying for existing transaction:', transactionId);
+      const [existing] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.id, transactionId))
+        .limit(1);
 
-    if (!existing) {
-      return c.json({ error: 'Transaction not found' }, 404);
-    }
+      if (!existing) {
+        console.log('[admin.transactions.verify] ❌ Transaction not found:', transactionId);
+        return c.json({ error: 'Transaction not found' }, 404);
+      }
 
-    const [updated] = await db
-      .update(transactions)
-      .set({
+      console.log('[admin.transactions.verify] ✅ Found existing transaction');
+      console.log('[admin.transactions.verify] Existing transaction (full data):', JSON.stringify(existing, null, 2));
+
+      console.log('[admin.transactions.verify] ─── DATABASE UPDATE ───');
+      console.log(`[admin.transactions.verify] ⏳ Updating status: "${existing.verificationStatus}" → "${status}"`);
+      const updatePayload = {
         verificationStatus: status,
         verifiedBy: committee.id,
         rejectionNotes: status === 'Rejected' ? (rejection_reason ?? null) : null,
-      })
-      .where(eq(transactions.id, transactionId))
-      .returning();
+      };
+      console.log('[admin.transactions.verify] Update payload:', JSON.stringify(updatePayload, null, 2));
+      
+      const [updated] = await db
+        .update(transactions)
+        .set(updatePayload)
+        .where(eq(transactions.id, transactionId))
+        .returning();
 
-    return c.json({
-      success: true,
-      transaction: {
-        id: updated.id,
-        teamId: updated.teamId,
-        verificationStatus: updated.verificationStatus,
-        verifiedBy: updated.verifiedBy,
-        rejectionNotes: updated.rejectionNotes,
-      },
-    });
+      console.log('[admin.transactions.verify] ✅ Transaction updated successfully');
+      console.log('[admin.transactions.verify] Updated transaction (full data):', JSON.stringify(updated, null, 2));
+
+      console.log('[admin.transactions.verify] ─── CHANGES SUMMARY ───');
+      console.log('[admin.transactions.verify] Change log:', {
+        transactionId: updated.id,
+        statusChanged: `${existing.verificationStatus} → ${updated.verificationStatus}`,
+        verifiedByCommittee: updated.verifiedBy,
+        previousVerifiedBy: existing.verifiedBy,
+        hasRejectionNotes: !!updated.rejectionNotes,
+        rejectionNotesSet: status === 'Rejected' ? !!rejection_reason : false,
+      });
+
+      const duration = Date.now() - startTime;
+      console.log('[admin.transactions.verify] ─── RESPONSE ───');
+      const responseObject = {
+        success: true,
+        transaction: {
+          id: updated.id,
+          teamId: updated.teamId,
+          verificationStatus: updated.verificationStatus,
+          verifiedBy: updated.verifiedBy,
+          rejectionNotes: updated.rejectionNotes,
+        },
+      };
+      console.log('[admin.transactions.verify] Full response object:', JSON.stringify(responseObject, null, 2));
+
+      console.log(`[admin.transactions.verify] ===== SUCCESS (${duration}ms) =====`);
+
+      return c.json(responseObject);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[admin.transactions.verify] ===== ERROR (${duration}ms) =====`);
+      console.error('[admin.transactions.verify] Error details:', error);
+      if (error instanceof Error) {
+        console.error('[admin.transactions.verify] Error message:', error.message);
+        console.error('[admin.transactions.verify] Error stack:', error.stack);
+      }
+      return c.json({
+        error: 'Failed to verify transaction',
+        details: error instanceof Error ? error.message : String(error),
+      }, 500);
+    }
   },
 );
 
@@ -1103,13 +1675,19 @@ admin.get(
   committeeMiddleware({ roles: ['Admin', 'Committee'] }),
   async (c) => {
     const startTime = Date.now();
+    console.log('[admin.documents.teams] ===== START GET /documents/teams =====');
     logInfo('admin.documents.teams', 'Fetching all team administration documents');
 
     try {
+      const user = c.get('user');
+      console.log('[admin.documents.teams] User ID:', user?.id);
+      console.log('[admin.documents.teams] User type:', typeof user?.id);
+      
       const db = createDb(c.env);
       const storage = getStorage(c.env);
 
       // Fetch all team administrations with team details
+      console.log('[admin.documents.teams] Querying database for team administrations...');
       logInfo('admin.documents.teams', 'Querying database for team administrations');
       const administrations = await db
         .select({
@@ -1131,22 +1709,45 @@ admin.get(
         .innerJoin(teamAccounts, eq(teamAdministration.teamId, teamAccounts.id))
         .innerJoin(competitions, eq(teamAccounts.competitionId, competitions.id));
 
+      console.log('[admin.documents.teams] ✅ Database query completed');
+      console.log('[admin.documents.teams] Total teams found:', administrations.length);
+      console.log('[admin.documents.teams] Sample team data:', {
+        teamCount: administrations.length,
+        firstTeamSample: administrations[0] ? {
+          teamId: administrations[0].teamId,
+          teamName: administrations[0].teamName,
+          competition: administrations[0].competitionName,
+          verificationStatus: administrations[0].verificationStatus,
+          hasLeadKtm: !!administrations[0].leadKtm,
+          hasM1Ktm: !!administrations[0].m1Ktm,
+          hasM2Ktm: !!administrations[0].m2Ktm,
+          hasTwibbonProof: !!administrations[0].twibbonProof,
+          hasPosterProof: !!administrations[0].posterProof,
+        } : null,
+      });
+      
       logInfo(
         'admin.documents.teams',
         `Found ${administrations.length} teams to process`,
       );
 
       // Transform to include signed URLs and document metadata
+      console.log('[admin.documents.teams] Processing document URLs for each team...');
       const teams = await Promise.all(
         administrations.map(async (admin) => {
+          console.log(`[admin.documents.teams] Processing team: ${admin.teamName} (${admin.teamId})`);
+          
           // Helper to create signed URL if document exists
           const getDocumentUrl = async (filePath: string | null, docType: string): Promise<{ type: string; url: string | null; exists: boolean } | null> => {
             // Skip if no file path
             if (!filePath) {
+              console.log(`[admin.documents.teams]   ⚠️  ${docType}: No file path`);
               return null;
             }
 
             try {
+              console.log(`[admin.documents.teams]   ⏳ ${docType}: Generating signed URL for path: ${filePath.substring(0, 60)}...`);
+              
               // Strip bucket name for R2 API
               const pathWithoutBucket = filePath.startsWith('wildcat2026/')
                 ? filePath.substring('wildcat2026/'.length)
@@ -1158,6 +1759,7 @@ admin.get(
               );
               
               if (urlError || !signedUrl) {
+                console.log(`[admin.documents.teams]   ❌ ${docType}: Failed to generate signed URL - ${urlError?.message || 'Unknown error'}`);
                 logInfo(
                   'admin.documents.teams',
                   `Could not create signed URL for ${docType} - team ${admin.teamId}`,
@@ -1165,12 +1767,14 @@ admin.get(
                 return null;
               }
               
+              console.log(`[admin.documents.teams]   ✅ ${docType}: Successfully generated signed URL (${signedUrl.substring(0, 80)}...)`);
               return {
                 type: docType,
                 url: signedUrl,
                 exists: true,
               };
             } catch (error) {
+              console.log(`[admin.documents.teams]   ❌ ${docType}: Error generating signed URL -`, error);
               logInfo(
                 'admin.documents.teams',
                 `Skipped ${docType} for team ${admin.teamId}`,
@@ -1180,6 +1784,7 @@ admin.get(
           };
 
           // Build documents array in parallel and filter out nulls
+          console.log(`[admin.documents.teams]   Processing 5 document types in parallel...`);
           const docResults = await Promise.all([
             getDocumentUrl(admin.leadKtm, 'lead_ktm'),
             getDocumentUrl(admin.m1Ktm, 'm1_ktm'),
@@ -1189,6 +1794,8 @@ admin.get(
           ]);
 
           const documents = docResults.filter((doc): doc is { type: string; url: string; exists: boolean } => doc !== null);
+          
+          console.log(`[admin.documents.teams]   Team ${admin.teamName}: Generated ${documents.length}/5 document URLs`);
 
           return {
             teamId: admin.teamId,
@@ -1203,7 +1810,19 @@ admin.get(
         }),
       );
 
+      console.log('[admin.documents.teams] ✅ All teams processed');
+      console.log('[admin.documents.teams] Response summary:', {
+        totalTeams: teams.length,
+        teamsWithDocuments: teams.filter(t => t.documents.length > 0).length,
+        documentsByStatus: {
+          Pending: teams.filter(t => t.verificationStatus === 'Pending').length,
+          Verified: teams.filter(t => t.verificationStatus === 'Verified').length,
+          Rejected: teams.filter(t => t.verificationStatus === 'Rejected').length,
+        },
+      });
+
       const duration = Date.now() - startTime;
+      console.log(`[admin.documents.teams] ===== SUCCESS (${duration}ms) =====`);
       logInfo(
         'admin.documents.teams',
         `Successfully fetched ${teams.length} teams in ${duration}ms`,
@@ -1212,6 +1831,12 @@ admin.get(
       return c.json({ teams });
     } catch (error) {
       const duration = Date.now() - startTime;
+      console.error(`[admin.documents.teams] ===== ERROR (${duration}ms) =====`);
+      console.error('[admin.documents.teams] Error details:', error);
+      if (error instanceof Error) {
+        console.error('[admin.documents.teams] Error message:', error.message);
+        console.error('[admin.documents.teams] Error stack:', error.stack);
+      }
       logError(
         'admin.documents.teams',
         `Error fetching team documents (${duration}ms):`,

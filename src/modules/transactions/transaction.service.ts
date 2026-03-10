@@ -28,11 +28,11 @@ export async function generatePaymentSignedUrl(
         throw new TransactionError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
     }
 
-    // R2 path: <teamId>/payment_proof_<fileName>
-    const storagePath = `${teamId}/payment_proof_${input.fileName}`;
+    // R2 path: <teamId>/payment_proof_<filename>
+    const storagePath = `${teamId}/payment_proof_${input.filename}`;
 
     const { data, error } = await storage.createSignedUploadUrl(storagePath, {
-        contentType: input.contentType,
+        contentType: input.content_type,
     });
 
     if (error || !data) {

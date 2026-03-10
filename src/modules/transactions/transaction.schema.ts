@@ -8,17 +8,17 @@ export const PAYMENT_ALLOWED_CONTENT_TYPES = [
 
 // Step 1: Presigned URL Generation
 export const requestPaymentUrlSchema = z.object({
-    fileName: z
+    filename: z
         .string()
-        .min(1, 'fileName is required')
-        .max(255, 'fileName too long')
+        .min(1, 'filename is required')
+        .max(255, 'filename too long')
         .refine(
             (name) => /\.(jpg|jpeg|png|pdf)$/i.test(name),
-            'fileName must end with a valid extension (.jpg, .jpeg, .png, .pdf)',
+            'filename must end with a valid extension (.jpg, .jpeg, .png, .pdf)',
         ),
-    contentType: z.enum(PAYMENT_ALLOWED_CONTENT_TYPES, {
+    content_type: z.enum(PAYMENT_ALLOWED_CONTENT_TYPES, {
         error: () => ({
-            message: `contentType must be one of: ${PAYMENT_ALLOWED_CONTENT_TYPES.join(', ')}`,
+            message: `content_type must be one of: ${PAYMENT_ALLOWED_CONTENT_TYPES.join(', ')}`,
         }),
     }),
 });
