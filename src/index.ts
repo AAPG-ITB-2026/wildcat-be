@@ -4,8 +4,15 @@ import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
 import payment from './modules/payment/payment.route.js';
+import upload from './modules/upload/upload.route.js';
+import assets from './modules/assets/assets.route.js';
+import submissions from './modules/submissions/submission.route.js';
+import transactionsRoute from './modules/transactions/transaction.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
+import { adminMiddleware } from './middlewares/adminAuth.js';
+import { announcementRoutes } from './modules/announcements/announcements.route.js';
+import { logger } from './middlewares/logger.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -16,19 +23,55 @@ app.use('/api/admin/*', authMiddleware);
 app.use('/api/payment/token', authMiddleware);
 app.use('/api/payment/status', authMiddleware);
 
-// 2. CORS (NF02 - Privacy & Access)
+// 2. Logger (Capture all requests for debugging)
+app.use('*', logger);
+
+// 2. CORS (WAJIB di atas Auth Middleware agar Preflight OPTIONS lolos)
 app.use('*', cors({
-  origin: '*', // Frontend URL
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: '*', // TODO: Restrict to frontend domain(s) nanti saat production
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // Tambahkan OPTIONS dan PATCH
+    allowHeaders: ['Content-Type', 'Authorization'], // Wajib ada agar frontend bisa kirim Token
+    exposeHeaders: ['Content-Length'],
+    credentials: true,
 }));
 
-// 3. Health Check (For Docker/PM2 - BE-15)
+// 3. Auth (Hanya pasang 1 kali saja di sini)
+app.use('/api/landing/*', authMiddleware);
+app.use('/api/admin/*', authMiddleware);
+app.use('/api/admin/*', adminMiddleware); // Admin middleware dieksekusi setelah authMiddleware
+app.use('/api/upload/*', authMiddleware);
+app.use('/api/submissions/*', authMiddleware);
+app.use('/api/transactions/*', authMiddleware);
+
+// 4. Health Check (For Docker/PM2 - BE-15)
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
-// 4. Mount Modules
+// 5. Mount Modules
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
 app.route('/api/payment', payment);
+app.route('/api/announcements', announcementRoutes);
+app.route('/api/assets', assets);
+app.route('/api/upload', upload);
+app.route('/api/submissions', submissions);
+app.route('/api/transactions', transactionsRoute);
 
-// 5. Start Server
+console.log('[app.init] Routes registered:');
+console.log('  - /api/landing/*');
+console.log('  - /api/admin/*');
+console.log('  - /api/announcements/*');
+console.log('  - /api/assets/*');
+console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
+console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
+console.log('  - /api/transactions/* (POST /request-url, POST /submit-proof)');
+
+console.log('[app.init] Routes registered:');
+console.log('  - /api/landing/*');
+console.log('  - /api/admin/*');
+console.log('  - /api/announcements/*');
+console.log('  - /api/assets/*');
+console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
+console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
+
+// 6. Start Server
 export default app;
