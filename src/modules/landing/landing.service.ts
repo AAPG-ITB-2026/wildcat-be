@@ -121,13 +121,16 @@ export async function checkRegistrationStatus(
 }> {
   // Fetch team account with document verification status
   const [team] = await db
-    .select()
+    .select({
+      teamAccounts: teamAccounts,
+      teamAdministration: teamAdministration,
+    })
     .from(teamAccounts)
     .leftJoin(teamAdministration, eq(teamAccounts.id, teamAdministration.teamId))
     .where(eq(teamAccounts.id, userId))
     .limit(1);
 
-  if (!team || !team.team_accounts) {
+  if (!team || !team.teamAccounts) {
     return { registered: false };
   }
 
@@ -135,21 +138,21 @@ export async function checkRegistrationStatus(
   const [latestTransaction] = await db
     .select()
     .from(transactions)
-    .where(eq(transactions.teamId, team.team_accounts.id))
+    .where(eq(transactions.teamId, team.teamAccounts.id))
     .orderBy((t: any) => t.createdAt) // DESC by default in Drizzle
     .limit(1);
 
   // Check if Step 2 is completed (contact fields filled)
-  const isCompleted = !!(team.team_accounts.phoneNumber && team.team_accounts.lineId);
+  const isCompleted = !!(team.teamAccounts.phoneNumber && team.teamAccounts.lineId);
 
   return {
     registered: true,
-    teamId: team.team_accounts.id,
-    competitionId: team.team_accounts.competitionId,
+    teamId: team.teamAccounts.id,
+    competitionId: team.teamAccounts.competitionId,
     isCompleted,
-    documentVerificationStatus: team.team_administration?.verificationStatus ?? null,
+    documentVerificationStatus: team.teamAdministration?.verificationStatus ?? null,
     paymentVerificationStatus: latestTransaction?.verificationStatus ?? null,
-    documentRejectionNotes: team.team_administration?.rejectionNotes ?? null,
+    documentRejectionNotes: team.teamAdministration?.rejectionNotes ?? null,
     paymentRejectionNotes: latestTransaction?.rejectionNotes ?? null,
   };
 }

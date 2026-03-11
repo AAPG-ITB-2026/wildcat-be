@@ -8,12 +8,10 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
     "dev:node": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "verify:r2": "tsx scripts/verify-r2.ts",
     "verify:r2:write": "tsx scripts/verify-r2.ts --write"
   },
