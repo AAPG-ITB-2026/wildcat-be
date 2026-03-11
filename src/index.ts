@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
 import landing from './modules/landing/landing.route.js';
 import admin from './modules/admin/admin.route.js';
+import payment from './modules/payment/payment.route.js';
 import upload from './modules/upload/upload.route.js';
 import assets from './modules/assets/assets.route.js';
 import submissions from './modules/submissions/submission.route.js';
@@ -17,6 +18,10 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // 1. Security Hardening (NF01)
 app.use('*', secureHeaders());
+app.use('/api/landing/*', authMiddleware);
+app.use('/api/admin/*', authMiddleware);
+app.use('/api/payment/token', authMiddleware);
+app.use('/api/payment/status', authMiddleware);
 
 // 2. Logger (Capture all requests for debugging)
 app.use('*', logger);
@@ -44,6 +49,7 @@ app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOStri
 // 5. Mount Modules
 app.route('/api/landing', landing);
 app.route('/api/admin', admin);
+app.route('/api/payment', payment);
 app.route('/api/announcements', announcementRoutes);
 app.route('/api/assets', assets);
 app.route('/api/upload', upload);

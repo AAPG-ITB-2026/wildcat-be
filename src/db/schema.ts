@@ -16,6 +16,8 @@ import {
 // ==========================================
 export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
+export const teamStatusEnum = pgEnum("team_status", ["Registered", "Document_Verified", "Paid"]);
+export const transactionStatusEnum = pgEnum("transaction_status", ["settlement", "pending", "deny", "cancel", "expire", "failure", "capture"]);
 export const audienceEnum = pgEnum("target_audience", ["All", "Paper and Poster Case Competition", "Business Case Competition", "Geology and Geophysics Case Study Competition (GnG)", "Highschool Essay Competition"]);
 
 // ==========================================
@@ -85,6 +87,7 @@ export const teamAccounts = pgTable("team_accounts", {
   m2Name: varchar("m2_name", { length: 255 }),
   m2Major: varchar("m2_major", { length: 255 }),
   
+  status: teamStatusEnum("status").default("Registered").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -108,12 +111,17 @@ export const transactions = pgTable("transactions", {
   
   orderId: varchar("order_id", { length: 255 }).notNull(), // For Midtrans webhook mapping
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  paymentType: varchar("payment_type", { length: 100 }).notNull(),
+  snapToken: text("snap_token"),
+  paymentType: varchar("payment_type", { length: 100 }),
   paymentProofUrl: text("payment_proof_url"), // Nullable for Midtrans auto-approvals
   
+  transactionStatus: transactionStatusEnum("transaction_status").default("pending").notNull(),
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id), 
   rejectionNotes: text("rejection_notes"),
+  
+  creationTime: timestamp("creation_time").defaultNow().notNull(),
+  expirationTime: timestamp("expiration_time").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
