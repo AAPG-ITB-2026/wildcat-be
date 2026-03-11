@@ -1,0 +1,1814 @@
+{
+  "info": {
+    "_postman_id": "5f62aff9-e27d-42c0-bbfc-e25bedb66f8c",
+    "name": "Mayar Headless API",
+    "description": "**Get Started**\n\nFor starting using Mayar Headless API, you need account at [https://mayar.id.](https://mayar.id.) if you have an account, you can create API KEY from [https://web.mayar.id/api-keys](https://web.mayar.id/api-keys). Please dont share your API KEY\n\nWe use Basic Auth to Authorization access to our API. it's simple you just set your API KEY for Authorization Barrier on your request Header. For for example please see our Endpoint bellow.\n\nPlease note that any changes to your domain or subdomain require you to create a new API KEY so that the link in the response you receive will also be updated.\n\n**SANDBOX**\n\nFor testing purpose, please use [https://web.mayar.club/](https://web.mayar.club/) you can login or register first, after that you can create API KEY from [https://web.mayar.club/api-keys](https://web.mayar.id/api-keys).\n\n**STATUS CODE**\n\nEvery request on our API has a response. Every response has satus code. You can know what happen with your reqeust with see resposne status code .\n\n200 - Your request Success\n\n400 - Bad request, your request in complate or you need add required data\n\n404 - Endpoint or Product Dont exist.\n\n401 - You dont have Authorization for access API\n\n429 - Your limit reached\n\n500 - Error\n\n**API Base Url**\n\n**Sanbox**\n\n```\nhttps://api.mayar.club/hl/v1\n\n ```\n\n**Production**\n\n```\nhttps://api.mayar.id/hl/v1\n\n ```\n\n**Rate Limit**\n\nWe use rate limit to ensure our API is fast and fair use to all customer. Our Rate Limit at 20 request/minutes.\n\nif you need help or feed back please feel free contact us at [info@mayar.id](https://mailto:info@mayar.id)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "49894314",
+    "_collection_link": "https://go.postman.co/collection/49894314-5f62aff9-e27d-42c0-bbfc-e25bedb66f8c?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "Product Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "List all product. example response:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": true,\n    \"pageCount\": 23,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"00f78890-dda0-4e91-b898-820ee1d05292\",\n            \"amount\": 123333,\n            \"category\": null,\n            \"createdAt\": 1667206763716,\n            \"description\": \"dfsafadfasdfa\\n\",\n            \"link\": \"testing-88624\",\n            \"type\": \"podcast\",\n            \"status\": \"active\",\n            \"name\": \"Testing\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"014ffc12-dead-417e-a50b-d93513a71c6b\",\n            \"amount\": 15000,\n            \"category\": \"Handphone & Aksesoris\",\n            \"createdAt\": 1626156636139,\n            \"description\": \"Barang bagus\",\n            \"link\": \"tes-berat-kedua\",\n            \"type\": \"physical_product\",\n            \"status\": \"active\",\n            \"name\": \"Tes Berat Kedua\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": null,\n            \"order\": {\n                \"id\": \"c58d23ef-86d5-486a-91a6-0e8d0a374812\",\n                \"variant\": null,\n                \"length\": 20,\n                \"width\": 20,\n                \"weight\": 1000\n            },\n            \"coverImageId\": null,\n            \"multipleImageId\": \"b8df5f66-032f-4bb0-9cc8-2ebe09a2a101\",\n            \"coverImage\": null,\n            \"multipleImage\": [\n                {\n                    \"id\": \"921166f9-5f68-4987-8de6-95db1ceca824\",\n                    \"fileType\": \"jpeg\",\n                    \"createdAt\": 1626667831468,\n                    \"updatedAt\": 1626667831469,\n                    \"url\": \"https://media.mayar.club/images/921166f9-5f68-4987-8de6-95db1ceca824.jpeg\"\n                },\n                {\n                    \"id\": \"974e24f7-3568-4ed9-a67c-847423e123e5\",\n                    \"fileType\": \"jpeg\",\n                    \"createdAt\": 1626667837538,\n                    \"updatedAt\": 1626667837538,\n                    \"url\": \"https://media.mayar.club/images/974e24f7-3568-4ed9-a67c-847423e123e5.jpeg\"\n                }\n            ]\n        },\n        {\n            \"id\": \"04a8ace2-9034-431a-a71f-0ff00c3d8edf\",\n            \"amount\": null,\n            \"category\": \"Bencana Alam\",\n            \"createdAt\": 1634873389644,\n            \"description\": \"You can store objects in relational tables as column objects or in object tables as row objects. Those objects that have meaning outside of the relational database they reside in, should be made referenceable as row objects in an object table.\\n\",\n            \"link\": \"bantu-bencana-xxx\",\n            \"type\": \"fundraising\",\n            \"status\": \"active\",\n            \"name\": \"bantu bencana xxx\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": \"a35c0f83-9ade-4c8b-814c-ea2011ceb78b\",\n            \"multipleImageId\": null,\n            \"multipleImage\": null,\n            \"coverImage\": {\n                \"id\": \"a35c0f83-9ade-4c8b-814c-ea2011ceb78b\",\n                \"fileType\": \"jpeg\",\n                \"url\": \"https://media.mayar.club/images/a35c0f83-9ade-4c8b-814c-ea2011ceb78b.jpeg\"\n            }\n        },\n        {\n            \"id\": \"05251d1a-ef02-46f9-82f4-b33c0da0d58d\",\n            \"amount\": 15000,\n            \"category\": \"Komputer & Aksesoris\",\n            \"createdAt\": 1624869009750,\n            \"description\": \"Deskjhj\",\n            \"link\": \"baru\",\n            \"type\": \"physical_product\",\n            \"status\": \"active\",\n            \"name\": \"Baru\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": {\n                \"id\": \"76110f0d-d3bc-4c73-8640-e4153a542244\",\n                \"variant\": null,\n                \"length\": 1,\n                \"width\": 1,\n                \"weight\": 500\n            },\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"052ed7bd-0190-47cb-99c5-92ef9161ba9d\",\n            \"amount\": 150000,\n            \"category\": null,\n            \"createdAt\": 1667206154793,\n            \"description\": \"dfsasdfasdfa\\n\",\n            \"link\": \"testing-35797\",\n            \"type\": \"podcast\",\n            \"status\": \"active\",\n            \"name\": \"Testing\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"058247ea-3b61-4814-ac0d-905dcfc08020\",\n            \"amount\": 0,\n            \"category\": null,\n            \"createdAt\": 1665141706206,\n            \"description\": \"asdasd\\n\",\n            \"link\": \"isbn-produk-84953\",\n            \"type\": \"audiobook\",\n            \"status\": \"active\",\n            \"name\": \"ISBN PRODUK\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"0b09684b-a3aa-41e1-95a9-005fbbeb27e3\",\n            \"amount\": 0,\n            \"category\": null,\n            \"createdAt\": 1654145663072,\n            \"description\": \"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.\\n\",\n            \"link\": \"baca-buku-audio-xxx\",\n            \"type\": \"audiobook\",\n            \"status\": \"active\",\n            \"name\": \"Baca Buku Audio XXX\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": \"d41b22fb-594b-45b1-ae35-264086d0b82d\",\n            \"multipleImageId\": null,\n            \"multipleImage\": null,\n            \"coverImage\": {\n                \"id\": \"d41b22fb-594b-45b1-ae35-264086d0b82d\",\n                \"fileType\": \"jpeg\",\n                \"url\": \"https://media.mayar.club/images/d41b22fb-594b-45b1-ae35-264086d0b82d.jpeg\"\n            }\n        },\n        {\n            \"id\": \"11261cbb-9a39-4eae-a00f-572ea4129e88\",\n            \"amount\": 32111,\n            \"category\": null,\n            \"createdAt\": 1621412274309,\n            \"description\": \"sfssf\",\n            \"link\": \"buku-sukses-banget-94688\",\n            \"type\": \"digital_product\",\n            \"status\": \"active\",\n            \"name\": \"buku sukses\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"1648290e-9563-4d95-89b3-01f538e20675\",\n            \"amount\": 70000,\n            \"category\": null,\n            \"createdAt\": 1621345709655,\n            \"description\": \"Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.\",\n            \"link\": \"webinar-biasa-biasa-aja\",\n            \"type\": \"webinar\",\n            \"status\": \"active\",\n            \"name\": \"webinar biasa banget\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": \"8f4a17d0-27f2-4568-91e6-538e29c7f4b3\",\n            \"multipleImageId\": null,\n            \"multipleImage\": null,\n            \"coverImage\": {\n                \"id\": \"8f4a17d0-27f2-4568-91e6-538e29c7f4b3\",\n                \"fileType\": \"png\",\n                \"url\": \"https://media.mayar.club/images/8f4a17d0-27f2-4568-91e6-538e29c7f4b3.png\"\n            }\n        },\n        {\n            \"id\": \"173bd49d-76d9-4ad6-bfcc-f90ab6f6fdaa\",\n            \"amount\": 99000,\n            \"category\": null,\n            \"createdAt\": 1665107470327,\n            \"description\": \"dicoba lagi ajaa\\n\",\n            \"link\": \"produk-dengan-author\",\n            \"type\": \"ebook\",\n            \"status\": \"active\",\n            \"name\": \"produk dengan author\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        }\n    ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Product Page with Type Filter",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product/type/event?page=1&pageSize=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product",
+                "type",
+                "event"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "List all product with filter\n\ntype:\n\n- generic_link\n    \n- physical_product\n    \n- event\n- webinar\n- digital_product\n- coaching\n- cohort_based\n- fundraising\n- ebook\n- podcast\n- audiobook\n- membership\n    \n\nstatus:\n\n- active\n- closed\n    \n\nresponse example:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"1b1d1b49-9cd0-40b8-9e47-ff54d32d151e\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1630589811972,\n            \"description\": \"Tes\",\n            \"link\": \"full-belly-farms\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"Full Belly Farm\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"8eb48848-41f4-4bc7-aaa7-4e013ac03191\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": [\n                    {\n                        \"id\": \"52cc5969-533d-45b0-b073-b25047a943e5\",\n                        \"amount\": 150000,\n                        \"createdAt\": 1673502938046,\n                        \"name\": \"baru\",\n                        \"quantity\": 100\n                    },\n                    {\n                        \"id\": \"7a48fc0d-060c-4330-aab4-d4789e6a1ff8\",\n                        \"amount\": 20000,\n                        \"createdAt\": 1633913519177,\n                        \"name\": \"Whatever\",\n                        \"quantity\": 5\n                    }\n                ]\n            },\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"4572e40c-f960-4d8a-bc19-b418a2e38075\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1675929435029,\n            \"description\": \"Meetup bersama lord ronal frank disini kamu bisa mencari dan berkumpul bersama\\n\",\n            \"link\": \"meetup-bersama-lord-ronal-frank\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"Meetup bersama lord ronal frank\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"42030a57-8e3f-4264-899b-7ef81990deac\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": []\n            },\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"4d3536b4-77a3-4d12-9b65-0c1baecf0e91\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1630588310249,\n            \"description\": \"lKJAKLJDLK\",\n            \"link\": \"link-pertamax\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"Link Pertamax\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"ba999b96-13c6-47cb-85a8-5d1665887f5e\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": [\n                    {\n                        \"id\": \"42c503f6-08f4-425c-9d59-4474f8f9890e\",\n                        \"amount\": 200000,\n                        \"createdAt\": 1633922998707,\n                        \"name\": \"Test Lagi\",\n                        \"quantity\": 2\n                    }\n                ]\n            },\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"6d8cc83e-423d-4083-8db7-2fe8c7ed41b8\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1631322299456,\n            \"description\": \"Dafa\",\n            \"link\": \"full-belly-farms-65571\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"full-belly-farmer\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"e6ec8430-cfdb-438b-bfa2-0f2d6b57d43d\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": []\n            },\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"b440773d-5083-408d-b4f0-4772bcefe7ef\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1631356817278,\n            \"description\": \"Barcelona vs PSG\",\n            \"link\": \"watch-football\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"Watch Football\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"36c8d0af-b782-40ef-9a9f-2a624c86f4aa\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": [\n                    {\n                        \"id\": \"1ab2d133-3d1e-4742-ad64-56796e84015d\",\n                        \"amount\": 70000,\n                        \"createdAt\": 1634874835533,\n                        \"name\": \"Full Belly Farms\",\n                        \"quantity\": 6\n                    }\n                ]\n            },\n            \"order\": null,\n            \"coverImageId\": \"de6e9db6-f040-4ec5-869f-35225e2d2c34\",\n            \"multipleImageId\": null,\n            \"multipleImage\": null,\n            \"coverImage\": {\n                \"id\": \"de6e9db6-f040-4ec5-869f-35225e2d2c34\",\n                \"fileType\": \"png\",\n                \"url\": \"https://media.mayar.club/images/de6e9db6-f040-4ec5-869f-35225e2d2c34.png\"\n            }\n        },\n        {\n            \"id\": \"f444ca02-33a8-4cde-ade4-ae135feeab09\",\n            \"amount\": null,\n            \"category\": null,\n            \"createdAt\": 1671677466720,\n            \"description\": \"Tes Tes Tes\\n\",\n            \"link\": \"event-offline-63501\",\n            \"type\": \"event\",\n            \"status\": \"active\",\n            \"name\": \"Event Offline\",\n            \"limit\": null,\n            \"redirectUrl\": \"\",\n            \"event\": {\n                \"id\": \"3eaaffec-a297-4dde-9e9e-3f777be0d038\",\n                \"event\": null,\n                \"description\": null,\n                \"ticketEvent\": [\n                    {\n                        \"id\": \"9b418337-93dd-4698-872e-8b4890078507\",\n                        \"amount\": 100000,\n                        \"createdAt\": 1671677521217,\n                        \"name\": \"Miskin\",\n                        \"quantity\": 500\n                    },\n                    {\n                        \"id\": \"b5d5249c-4aaf-4acb-9df3-da5869e7851c\",\n                        \"amount\": 1000000,\n                        \"createdAt\": 1671677493976,\n                        \"name\": \"VVIP\",\n                        \"quantity\": 10000\n                    },\n                    {\n                        \"id\": \"f40367b4-d218-4ee3-be19-f738ce48b8f1\",\n                        \"amount\": 50000,\n                        \"createdAt\": 1674113965596,\n                        \"name\": \"Sultan\",\n                        \"quantity\": 5\n                    }\n                ]\n            },\n            \"order\": null,\n            \"coverImageId\": \"cbce2870-136a-496c-8965-5c3edfff1d4f\",\n            \"multipleImageId\": null,\n            \"multipleImage\": null,\n            \"coverImage\": {\n                \"id\": \"cbce2870-136a-496c-8965-5c3edfff1d4f\",\n                \"fileType\": \"jpeg\",\n                \"url\": \"https://media.mayar.club/images/cbce2870-136a-496c-8965-5c3edfff1d4f.jpeg\"\n            }\n        }\n    ]\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Product ",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product?search=Belly",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Belly"
+                }
+              ]
+            },
+            "description": "Search product\n\nresponse example:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 0,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": []\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product/00a1cd6a-0a30-4746-bd30-06d2f619041e",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product",
+                "00a1cd6a-0a30-4746-bd30-06d2f619041e"
+              ]
+            },
+            "description": "Detail product\n\nResponse Example:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"00a1cd6a-0a30-4746-bd30-06d2f619041e\",\n        \"link\": \"microsoft\",\n        \"name\": \"Microsoft\",\n        \"category\": null,\n        \"limit\": 10,\n        \"type\": \"webinar\",\n        \"userId\": \"463a9515-95d7-4bbb-945c-b1285019c019\",\n        \"event\": null,\n        \"order\": null,\n        \"qty\": null,\n        \"amount\": 20000,\n        \"status\": \"closed\",\n        \"description\": \"guide for the beginner\\n\",\n        \"coverImageId\": \"d021692d-6616-4ff2-b412-62b5db68945a\",\n        \"multipleImageId\": null,\n        \"multipleImage\": null,\n        \"coverImage\": {\n            \"id\": \"d021692d-6616-4ff2-b412-62b5db68945a\",\n            \"fileType\": \"png\",\n            \"url\": \"https://media.mayar.club/images/d021692d-6616-4ff2-b412-62b5db68945a.png\"\n        }\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product/close/00a1cd6a-0a30-4746-bd30-06d2f619041e",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product",
+                "close",
+                "00a1cd6a-0a30-4746-bd30-06d2f619041e"
+              ]
+            },
+            "description": "Close product\n\nResponse Success Example:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```\n\nResponse Failed:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Re-open Product",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/product/open/00a1cd6a-0a30-4746-bd30-06d2f619041e",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "product",
+                "open",
+                "00a1cd6a-0a30-4746-bd30-06d2f619041e"
+              ]
+            },
+            "description": "Re-open product\n\nResponse success:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```\n\nResponse failed:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoint where you can get or create your products"
+    },
+    {
+      "name": "Invoice",
+      "item": [
+        {
+          "name": "Create Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n        \"name\": \"andre\",\n        \"email\": \"alikusnadie@gmail.com\",\n        \"mobile\": \"085797522261\",\n        \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n        \"description\": \"pembelian es kopis usu botol\",\n        \"expiredAt\": \"2024-02-29T09:41:09.401Z\",\n        \"items\":[{\n            \"quantity\": 2,\n            \"rate\": 55000,\n            \"description\": \"es kopi susu botol\"\n        }]\n    }\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoice/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice",
+                "create"
+              ]
+            },
+            "description": "Create Invoice\n\nsuccess response:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"bdf9d972-811f-4472-8fdc-2baae04b5148\",\n        \"transactionId\": \"bdf9d972-811f-4472-8fdc-2baae04b5148\",\n        \"link\": \"https://donasi.sekuts.com/invoices/null\"\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n        \"id\": \"bdf9d972-811f-4472-8fdc-2baae04b5148\",\n        \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n        \"description\": \"kemana ini menjadi a\",\n        \"items\":[{\n            \"quantity\": 2,\n            \"rate\": 55000,\n            \"description\": \"ayam jago\"\n\n\n        }]\n    }\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoice/edit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice",
+                "edit"
+              ]
+            },
+            "description": "Edit Invoice\n\nSuccess Response:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"85bedd25-b3c8-4804-81b3-286d44a829a6\",\n        \"transactionId\": \"a557160b-a39d-492d-becc-5f0ec66088c7\",\n        \"link\": \"https://cacana.mayar.link/invoices/qvrko39k2z\"\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Index Invoice",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoice",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice"
+              ]
+            },
+            "description": "List Invoice\n\nResponse:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"81d366ef-35fb-4784-bf2e-68ae46e6cc9a\",\n            \"amount\": 155000,\n            \"category\": null,\n            \"createdAt\": 1676040709432,\n            \"description\": \"kemana ini menjadi a\",\n            \"link\": \"9iz7yn93ui\",\n            \"type\": \"invoice\",\n            \"status\": \"unpaid\",\n            \"name\": \"INVOICE\",\n            \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n            \"customerId\": \"75eb87fe-bd90-498c-b072-828204c22636\",\n            \"transactions\": [],\n            \"customer\": {\n                \"id\": \"75eb87fe-bd90-498c-b072-828204c22636\",\n                \"email\": \"alikusnadie@gmail.com\",\n                \"mobile\": \"085797522261\",\n                \"name\": \"andre\"\n            }\n        }\n    ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Sort/filter Invoice",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoice?sort=closed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "closed"
+                }
+              ]
+            },
+            "description": "Sort / Filter Invoice\n\nstatus:\n\n- active\n- paid\n- closed\n    \n\nResponse:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"81d366ef-35fb-4784-bf2e-68ae46e6cc9a\",\n            \"amount\": 155000,\n            \"category\": null,\n            \"createdAt\": 1676040709432,\n            \"description\": \"contoh invoice description\",\n            \"link\": \"9iz7yn93ui\",\n            \"type\": \"invoice\",\n            \"status\": \"unpaid\",\n            \"name\": \"INVOICE\",\n            \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n            \"customerId\": \"75eb87fe-bd90-498c-b072-828204c22636\",\n            \"transactions\": [],\n            \"customer\": {\n                \"id\": \"75eb87fe-bd90-498c-b072-828204c22636\",\n                \"email\": \"alikusnadie@gmail.com\",\n                \"mobile\": \"085797522261\",\n                \"name\": \"andre\"\n            }\n        }\n    ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Invoice / Status Invoice",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/invoice/de141021-d9d9-4cbd-b2da-7b13420d9164",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice",
+                "de141021-d9d9-4cbd-b2da-7b13420d9164"
+              ]
+            },
+            "description": "Detail Invoice. use this endpoint for checking status invoice\n\nResponse:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"de141021-d9d9-4cbd-b2da-7b13420d9164\",\n        \"amount\": 40000,\n        \"status\": \"created\",\n        \"customerId\": \"f74aab9f-03a1-41f7-b256-7cbd45dd7278\",\n        \"customer\": {\n            \"id\": \"f74aab9f-03a1-41f7-b256-7cbd45dd7278\",\n            \"email\": \"alikusnadie@gmail.com\",\n            \"mobile\": \"085797522261\",\n            \"name\": \"alikusnadie\"\n        }\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Invoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoice/close/27692759-805f-449e-9dc2-1b0b7e137dd4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice",
+                "close",
+                "27692759-805f-449e-9dc2-1b0b7e137dd4"
+              ]
+            },
+            "description": "Close Invoice\n\nResponse Success:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```\n\nReponse Failed:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Re-open Invoice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/invoice/open/27692759-805f-449e-9dc2-1b0b7e137dd4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "invoice",
+                "open",
+                "27692759-805f-449e-9dc2-1b0b7e137dd4"
+              ]
+            },
+            "description": "Re-open Invoice\n\nResponse Success:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```\n\nResponse Failed:\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Request Payment",
+      "item": [
+        {
+          "name": "Create Single Payment Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n        \"name\": \"andre\",\n        \"email\": \"alikusnadie@gmail.com\",\n        \"amount\": 170000,\n        \"mobile\": \"085797522261\",\n        \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n        \"description\": \"kemana ini menjadi a\",\n        \"expiredAt\": \"2024-02-29T09:41:09.401Z\"\n    }\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "create"
+              ]
+            },
+            "description": "Create single payment request (Penagihan)\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"abadbafc-46c9-46ab-a6b4-c23dcffb8ffd\",\n        \"transaction_id\": \"206d8f5e-0f9c-41aa-b424-377b463c7b67\",\n        \"transactionId\": \"206d8f5e-0f9c-41aa-b424-377b463c7b67\",\n        \"link\": \"https://cacana.mayar.link/invoices/f61oc2tz6j\"\n    }\n}\n\n ```\n\nfor check status you can use endpoint: [https://api.mayar.id/hl/v1/payment/(transaction_id)](https://api.mayar.id/hl/v1/payment/(transaction_id))"
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Single Payment Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Bayar ayam goreng 10 ss\",\n    \"amount\": 10000,\n    \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n    \"description\": \"coba dulu pak\",\n    \"id\": \"00004e4c-26f7-4e5d-b35a-a4c87b40e324\"        \n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/edit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "edit"
+              ]
+            },
+            "description": "Edit single payment request (Penagihan)\n\nexample response:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"abadbafc-46c9-46ab-a6b4-c23dcffb8ffd\",\n        \"transaction_id\": \"206d8f5e-0f9c-41aa-b424-377b463c7b67\",\n        \"link\": \"https://cacana.mayar.link/pl/f61oc2tz6j\"\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Index Single  Payment Request Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment"
+              ]
+            },
+            "description": "List Single Payment Request (Penagihan)\n\nResponse Example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"229b49a6-53d6-4ebe-8037-9399ba357668\",\n            \"amount\": 170000,\n            \"category\": null,\n            \"createdAt\": 1676278175934,\n            \"description\": \"kemana ini menjadi a\",\n            \"link\": \"0rfv6v4jyv\",\n            \"type\": \"payment_request\",\n            \"status\": \"unpaid\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"4910d7a4-aaea-4ac4-b25f-86cabfbeefe3\",\n            \"amount\": 10000,\n            \"category\": null,\n            \"createdAt\": 1666186697814,\n            \"description\": \"kemaren belum bayar koopi\",\n            \"link\": \"cxevrnrx19\",\n            \"type\": \"payment_request\",\n            \"status\": \"unpaid\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"abadbafc-46c9-46ab-a6b4-c23dcffb8ffd\",\n            \"amount\": 170000,\n            \"category\": null,\n            \"createdAt\": 1676279771817,\n            \"description\": \"kemana ini menjadi a\",\n            \"link\": \"f61oc2tz6j\",\n            \"type\": \"payment_request\",\n            \"status\": \"unpaid\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"b0ff50ce-5eb4-4c87-8be5-7f1db2a44940\",\n            \"amount\": 120000,\n            \"category\": null,\n            \"createdAt\": 1668614239645,\n            \"description\": \"kapan bayar pak ?\",\n            \"link\": \"ngh3lsllz6\",\n            \"type\": \"payment_request\",\n            \"status\": \"unpaid\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"c20f44f6-b667-4e64-a1ac-c613ab536b56\",\n            \"amount\": 100000,\n            \"category\": null,\n            \"createdAt\": 1664852180396,\n            \"description\": \"Bayar dulu hutang nya ka\",\n            \"link\": \"v2j0jw032yp\",\n            \"type\": \"payment_request\",\n            \"status\": \"unpaid\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": null,\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        },\n        {\n            \"id\": \"d2c36499-655b-41bb-b2b0-8e1f0505c1c3\",\n            \"amount\": 120000,\n            \"category\": null,\n            \"createdAt\": 1676041436134,\n            \"description\": \"contoh aja\",\n            \"link\": \"eixikiurxq\",\n            \"type\": \"payment_request\",\n            \"status\": \"closed\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": \"https://kelaskami.com/nexst2s3\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        }\n    ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Sort/Filter Single Payment Request Page",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment?status=closed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "closed"
+                }
+              ]
+            },
+            "description": "Sort / Filter Single Payment Request (Penagihan).\n\nStatus:\n\n- active\n- paid\n- closed\n    \n\nResponse Example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"d2c36499-655b-41bb-b2b0-8e1f0505c1c3\",\n            \"amount\": 120000,\n            \"category\": null,\n            \"createdAt\": 1676041436134,\n            \"description\": \"contoh aja\",\n            \"link\": \"eixikiurxq\",\n            \"type\": \"payment_request\",\n            \"status\": \"closed\",\n            \"name\": \"Penagihan\",\n            \"limit\": null,\n            \"redirectUrl\": \"https://kelaskami.com/nexst2s3\",\n            \"event\": null,\n            \"order\": null,\n            \"coverImageId\": null,\n            \"multipleImageId\": null,\n            \"coverImage\": null,\n            \"multipleImage\": null\n        }\n    ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Single  Payment Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/27692759-805f-449e-9dc2-1b0b7e137dd4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "27692759-805f-449e-9dc2-1b0b7e137dd4"
+              ]
+            },
+            "description": "Detail single payment request (Penagihan)\n\nResponse Example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"id\": \"d2c36499-655b-41bb-b2b0-8e1f0505c1c3\",\n        \"link\": \"eixikiurxq\",\n        \"name\": \"Penagihan\",\n        \"category\": null,\n        \"limit\": null,\n        \"type\": \"payment_request\",\n        \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n        \"event\": null,\n        \"order\": null,\n        \"qty\": null,\n        \"amount\": 120000,\n        \"status\": \"closed\",\n        \"description\": \"contoh aja\",\n        \"coverImageId\": null,\n        \"multipleImageId\": null,\n        \"coverImage\": null,\n        \"multipleImage\": null\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Single Payment Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/close/27692759-805f-449e-9dc2-1b0b7e137dd4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "close",
+                "27692759-805f-449e-9dc2-1b0b7e137dd4"
+              ]
+            },
+            "description": "Close single payment request:\n\nResponse example if failed:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```\n\nResponse example if success:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Re-open Single Payment Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/payment/open/27692759-805f-449e-9dc2-1b0b7e137dd4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "open",
+                "27692759-805f-449e-9dc2-1b0b7e137dd4"
+              ]
+            },
+            "description": "Re Open single payment request:\n\nResponse example if failed:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"failed\"\n}\n\n```\n\nResponse example if success:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\"\n}\n\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Installment",
+      "item": [
+        {
+          "name": "Create Installment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alikusnadie@gmail.com\", \n  \"mobile\": \"085797522261\",\n  \"name\": \"andis\",\n  \"amount\": 1500000,\n  \"installment\": {\n    \"description\": \"CICIl HP 3 bulan\", \n    \"interest\": 0,\n    \"tenure\": 3,\n    \"dueDate\": 11\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/installment/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "installment",
+                "create"
+              ]
+            },
+            "description": "endpoint to cretae installment. All field in payload ar mandatory if we dont describe, its optional\n\n**Payload**\n\n- email\n- mobile\n- name\n- amount\n- installment\n    - description\n    - interest\n    - interest\n    - dueDate"
+          },
+          "response": []
+        },
+        {
+          "name": "installment Detail",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiredAt\": \"2023-05-05T09:06:14.933Z\", \n  \"name\": \"diskon ga berulang kali\",\n  \"discount\": {\n    \"discountType\": \"monetary\",\n    \"eligibleCustomerType\": \"all\",\n    \"minimumPurchase\": 500000,\n    \"value\": 100000,   \n    \"totalCoupons\": 100\n  },\n  \"coupon\": {\n    \"code\": \"17Agustus19\",\n    \"type\": \"reusable\"\n  },\n  \"products\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/installment/(installmentId)",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "installment",
+                "(installmentId)"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "DIscount & Coupon",
+      "item": [
+        {
+          "name": "Coupon Detail",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiredAt\": \"2023-05-05T09:06:14.933Z\", \n  \"name\": \"diskon ga berulang kali\",\n  \"discount\": {\n    \"discountType\": \"monetary\",\n    \"eligibleCustomerType\": \"all\",\n    \"minimumPurchase\": 500000,\n    \"value\": 100000,   \n    \"totalCoupons\": 100\n  },\n  \"coupon\": {\n    \"code\": \"17Agustus19\",\n    \"type\": \"reusable\"\n  },\n  \"products\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/coupon/(couponId)",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupon",
+                "(couponId)"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Discount with Coupon",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expiredAt\": \"2023-05-05T09:06:14.933Z\", \n  \"name\": \"diskon ga berulang kali\",\n  \"discount\": {\n    \"discountType\": \"monetary\",\n    \"eligibleCustomerType\": \"all\",\n    \"minimumPurchase\": 500000,\n    \"value\": 100000,   \n    \"totalCoupons\": 100\n  },\n  \"coupon\": {\n    \"code\": \"17Agustus19\",\n    \"type\": \"reusable\"\n  },\n  \"products\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/coupon/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "coupon",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "Add to Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"4172192c-fdc8-43c6-ab86-8fc8b5f027c2\",\n    \"sessionId\": \"session-events\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/add",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "add"
+              ]
+            },
+            "description": "NOTE: This feature not release yet.\n\nAdd to cart - using randomized cart session id. you can set sessionId too. sessionId its uniq. so you can use sessionid as Uniq ID for your customer cart.\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"typeCart\": \"all\",\n        \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n        \"sessionId\": \"session-events\",\n        \"items\": 1,\n        \"amountTotal\": 12000,\n        \"productItems\": [\n            {\n                \"qty\": 1,\n                \"amount\": 12000,\n                \"product\": {\n                    \"id\": \"0d1b719f-74c6-4595-8d55-1f47e3c00a9e\",\n                    \"link\": \"kesehatan-pengobatan-diabetes\",\n                    \"name\": \"kesehatan pengobatan diabetes\",\n                    \"category\": null,\n                    \"type\": \"digital_product\",\n                    \"qty\": null,\n                    \"amount\": 12000,\n                    \"limit\": null,\n                    \"status\": \"active\",\n                    \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                    \"description\": \"kesehatan pengobatan diabetes\\n\",\n                    \"coverImageId\": \"d3d9fc3f-12a2-45cd-959e-2381d0e3cea7\",\n                    \"multipleImageId\": null,\n                    \"multipleImage\": null,\n                    \"user\": {\n                        \"id\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                        \"accountId\": \"43a197e5-60c3-49ea-a7e0-4223064a4be5\"\n                    },\n                    \"coverImage\": {\n                        \"id\": \"d3d9fc3f-12a2-45cd-959e-2381d0e3cea7\",\n                        \"fileType\": \"jpeg\",\n                        \"url\": \"https://media.mayar.id/images/d3d9fc3f-12a2-45cd-959e-2381d0e3cea7.jpeg\"\n                    }\n                }\n            }\n        ]\n    }\n}\n\n ```\n\nResponse example if product not active:\n\n```\n{\n    \"statusCode\": 400,\n    \"messages\": \"This product is no longer active.\",\n    \"data\": null\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove to Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": \"f444ca02-33a8-4cde-ade4-ae135feeab09\",\n    \"sessionId\": \"session-event-2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/remove",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "remove"
+              ]
+            },
+            "description": "NOTE: This feature not release yet.\n\nRemove product from cart:\n\nexample response:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n        \"sessionId\": \"session-event-2\",\n        \"items\": 1,\n        \"amountTotal\": 0,\n        \"productItems\": []\n    }\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Cart",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"product\":[\n        {\"id\": \"00f78890-dda0-4e91-b898-820ee1d05292\"},\n        {\"id\": \"00004e4c-26f7-4e5d-b35a-a4c87b40e324\"}    \n    ]\n    \n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart",
+                "update"
+              ]
+            },
+            "description": "NOTE: This feature not release yet.\n\nAnother way to construct cart for your product.\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"typeCart\": \"all\",\n        \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n        \"sessionId\": \"H5isjRRaVr5hQaSOQNIJbwXexGj67VNt\",\n        \"items\": null,\n        \"amountTotal\": null,\n        \"productItems\": [\n            {\n                \"amount\": null,\n                \"product\": {\n                    \"id\": \"0d1b719f-74c6-4595-8d55-1f47e3c00a9e\",\n                    \"link\": \"kesehatan-pengobatan-diabetes\",\n                    \"name\": \"kesehatan pengobatan diabetes\",\n                    \"category\": null,\n                    \"type\": \"digital_product\",\n                    \"qty\": null,\n                    \"amount\": 12000,\n                    \"limit\": null,\n                    \"status\": \"active\",\n                    \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                    \"description\": \"kesehatan pengobatan diabetes\\n\",\n                    \"coverImageId\": \"d3d9fc3f-12a2-45cd-959e-2381d0e3cea7\",\n                    \"multipleImageId\": null,\n                    \"multipleImage\": null,\n                    \"user\": {\n                        \"id\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                        \"accountId\": \"43a197e5-60c3-49ea-a7e0-4223064a4be5\"\n                    },\n                    \"coverImage\": {\n                        \"id\": \"d3d9fc3f-12a2-45cd-959e-2381d0e3cea7\",\n                        \"fileType\": \"jpeg\",\n                        \"url\": \"https://media.mayar.id/images/d3d9fc3f-12a2-45cd-959e-2381d0e3cea7.jpeg\"\n                    }\n                }\n            },\n            {\n                \"amount\": null,\n                \"product\": {\n                    \"id\": \"88b0f5a2-5d85-4675-8e82-fc40c78e8ceb\",\n                    \"link\": \"100-cara-jitu-mancing\",\n                    \"name\": \"100 Cara Jitu mancing\",\n                    \"category\": null,\n                    \"type\": \"ebook\",\n                    \"qty\": null,\n                    \"amount\": 10000,\n                    \"limit\": 100,\n                    \"status\": \"active\",\n                    \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                    \"description\": \"coba bagikan ya\\n\",\n                    \"coverImageId\": \"4d404c76-0bbf-4425-8213-f9de42d9aa5d\",\n                    \"multipleImageId\": null,\n                    \"multipleImage\": null,\n                    \"user\": {\n                        \"id\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\",\n                        \"accountId\": \"43a197e5-60c3-49ea-a7e0-4223064a4be5\"\n                    },\n                    \"coverImage\": {\n                        \"id\": \"4d404c76-0bbf-4425-8213-f9de42d9aa5d\",\n                        \"fileType\": \"png\",\n                        \"url\": \"https://media.mayar.id/images/4d404c76-0bbf-4425-8213-f9de42d9aa5d.png\"\n                    }\n                }\n            }\n        ]\n    }\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Web Checkout Page",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://www.mayar.link/checkout/cart/(your sessionId)",
+              "protocol": "https",
+              "host": [
+                "www",
+                "mayar",
+                "link"
+              ],
+              "path": [
+                "checkout",
+                "cart",
+                "(your sessionId)"
+              ]
+            },
+            "description": "NOTE: This feature not release yet.\n\nto create checkout page, you can construct url like above with your cart data / your cart sessionId"
+          },
+          "response": []
+        },
+        {
+          "name": "Checkout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n        \"name\": \"andre\",\n        \"email\": \"alikusnadie@gmail.com\",\n        \"mobile\": \"085797522261\",\n        \"redirectUrl\": \"https://kelaskami.com/nexst23\",\n        \"description\": \"kemana ini menjadi a\",\n        \"paymentType\": \"ewallet/OVO\",\n        \"sessionId\": \"session-dimas-21\"\n    }\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "checkout"
+              ]
+            },
+            "description": "Checkout from cart:\n\npaymentType supported. please see your account for detail payment channel active for your account:\n\nE-wallet\n\n- ewallet/OVO\n- ewallet/DANA\n- ewallet/OVO\n- ewallet/LINKAJA\n- ewallet/JENIUSPAY\n- ewallet/GOPAY\n    \n\nVirtual Account\n\n- va/BNI\n- va/BCA\n- va/MANDIRI\n- va/BRI\n    \n\nQRIS\n\n- qris\n    \n\nPaylater\n\n- akulaku\n    \n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"typeCart\": \"all\",\n        \"xenditId\": null,\n        \"link\": \"https://cacana.mayar.link/plt/231714dd-f05b-4d94-8102-ccdfd60f048a/OVO\",\n        \"paymentType\": \"ewallet/OVO\",\n        \"paymentLinkId\": \"df43bb61-c6b7-42e7-8a78-100638ff9c68\",\n        \"transactionId\": \"231714dd-f05b-4d94-8102-ccdfd60f048a\"\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Cart Page",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer (Your JWT)",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ]
+            },
+            "description": "Cart content list\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"items\": 0,\n        \"amountTotal\": 0,\n        \"productItems\": []\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Cart With Custom Session",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cart?sessionId=name-session-from-you",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cart"
+              ],
+              "query": [
+                {
+                  "key": "sessionId",
+                  "value": "name-session-from-you"
+                }
+              ]
+            },
+            "description": "Cart content list with custom cart session id\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"items\": 0,\n        \"amountTotal\": 0,\n        \"productItems\": []\n    }\n}\n\n ```"
+          },
+          "response": []
+        }
+      ],
+      "description": "NOTE: This feature not release yet. All cart fitur only available in next release!"
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Customer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/customer?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get your customer data:\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"556ccecc-f030-4ea5-88f6-214fb682f4cb\",\n            \"createdAt\": 1672820678058,\n            \"email\": \"alikusnadie@gmail.com\",\n            \"mobile\": \"085797522261\",\n            \"name\": \"andre\",\n            \"status\": \"active\",\n            \"updatedAt\": 1672820678058,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"73f46d4e-1bf2-4fd2-b08d-273ae4bcd353\",\n            \"createdAt\": 1664852114807,\n            \"email\": \"kugutsu.hiruko@gmail.com\",\n            \"mobile\": \"085797522261\",\n            \"name\": \"andri\",\n            \"status\": \"active\",\n            \"updatedAt\": 1664852114807,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"c6911947-12f9-4e00-8ed7-d58c22aab271\",\n            \"createdAt\": 1669873681036,\n            \"email\": \"kurususappdotcom@gmail.com\",\n            \"mobile\": \"085156369011\",\n            \"name\": \"kursus\",\n            \"status\": \"active\",\n            \"updatedAt\": 1669873681036,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"ca9bc98f-6f87-43af-ba71-7e9e27d930b5\",\n            \"createdAt\": 1674700778789,\n            \"email\": \"andresubkwyt6@gmail.com\",\n            \"mobile\": \"09218212122\",\n            \"name\": \"ali212\",\n            \"status\": \"active\",\n            \"updatedAt\": 1674700778789,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"df5a517f-82ff-40b8-90e6-704a48c947b1\",\n            \"createdAt\": 1666186604080,\n            \"email\": \"putri@wecik.com\",\n            \"mobile\": \"085797522261\",\n            \"name\": \"putri\",\n            \"status\": \"active\",\n            \"updatedAt\": 1666186604080,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"f26d2d6a-7b01-4723-92e4-634304e7c108\",\n            \"createdAt\": 1672977720402,\n            \"email\": \"mail.raya15@gmail.com\",\n            \"mobile\": \"628991576622\",\n            \"name\": \"Raya .\",\n            \"status\": \"active\",\n            \"updatedAt\": 1672977720402,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        },\n        {\n            \"id\": \"fd8fedfb-2156-4bad-aad6-d11d1fee2c6b\",\n            \"createdAt\": 1666186511337,\n            \"email\": \"badars@gmail.com\",\n            \"mobile\": \"0876286382\",\n            \"name\": \"badar\",\n            \"status\": \"active\",\n            \"updatedAt\": 1666186511337,\n            \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n        }\n    ]\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Create magic link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"alikusnadie@gmail.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/login/portal",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "login",
+                "portal"
+              ]
+            },
+            "description": "create magic link and send to customer email for their login in our customer portal"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n   \"fromEmail\": \"alikusnadie@gmail.com\",\n   \"toEmail\": \"alikusnadie-baru@gmail.com\"\n}\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "update"
+              ]
+            },
+            "description": "### Update Customer\n\nThis endpoint is used to update customer information.\n\n#### Request Body\n\n- `fromEmail` (string, required): The email of the customer to be updated from.\n    \n- `toEmail` (string, required): The new email of the customer.\n    \n\n#### Request Body\n\n``` json\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"fromEmail\": \"fromEmail@gmail.com\",\n        \"toEmail\": \"toEmail@gmail.com\",\n        \"userId\": \"b83790ec-d8e0-4c92-9b6b-98a3f2fe4b94\"\n    }\n}\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Cretae Customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"alikusnadie 2025\",\n    \"email\": \"alikusnadie@gmail.com\",\n    \"mobile\": \"085797522261\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customer/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "customer",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Transaction",
+      "item": [
+        {
+          "name": "Account Balance",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/balance",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "balance"
+              ]
+            },
+            "description": "Get All balance on your account:\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"balanceActive\": 9831,\n        \"balancePending\": 0,\n        \"balance\": 9831\n    }\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Paid Transactions",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transactions?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "startAt",
+                  "value": "2024-01-10T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "endAt",
+                  "value": "2024-06-12T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "paid",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "webinar",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "customerId",
+                  "value": "556ccecc-f030-4ea5-88f6-214fb682f4cb",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentLinkName",
+                  "value": "Product Name",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "fields",
+                  "value": "id,credit,status,customer.name",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get paid data transactions:\n\nResponse Example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": false,\n    \"pageCount\": 1,\n    \"pageSize\": 10,\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"b3f03e9d-76b0-4bcd-8492-11927d99e38b\",\n            \"credit\": 10000,\n            \"status\": \"settled\",\n            \"balanceHistoryType\": \"bundling\",\n            \"paymentMethod\": \"QRIS\",\n            \"customerId\": \"556ccecc-f030-4ea5-88f6-214fb682f4cb\",\n            \"createdAt\": 1672820713066,\n            \"paymentLinkTransactionId\": \"e8df1fb8-f0d5-4459-a7a7-1b31591f3e69\",\n            \"fee\": [\n                {\n                    \"id\": \"50a61902-c86d-4bd4-b642-c0f4dc93f7a4\",\n                    \"balanceHistoryType\": \"mayar_fee\",\n                    \"debit\": 100\n                },\n                {\n                    \"id\": \"7a4a66cf-13a7-4cdf-a3c5-6c7779f65292\",\n                    \"balanceHistoryType\": \"xendit_fee\",\n                    \"debit\": 63\n                }\n            ],\n            \"paymentLinkId\": \"1b86cb14-4a0b-47a9-8c57-fb2c903cf0d2\",\n            \"subscriptionId\": null,\n            \"xenditTransactionId\": \"407c40e8-dcca-40c7-80cb-4eb14fe6cc3a\",\n            \"subscription\": null,\n            \"paymentLinkTransaction\": {\n                \"id\": \"e8df1fb8-f0d5-4459-a7a7-1b31591f3e69\",\n                \"isAdminFeeBorneByCustomer\": false,\n                \"isChannelFeeBorneByCustomer\": false\n            },\n            \"customer\": {\n                \"id\": \"556ccecc-f030-4ea5-88f6-214fb682f4cb\",\n                \"name\": \"andre\",\n                \"email\": \"alikusnadie@gmail.com\",\n                \"mobile\": \"085797522261\"\n            },\n            \"paymentLink\": {\n                \"id\": \"1b86cb14-4a0b-47a9-8c57-fb2c903cf0d2\",\n                \"name\": \"test buindling\"\n            },\n            \"xenditTransaction\": {\n                \"id\": \"407c40e8-dcca-40c7-80cb-4eb14fe6cc3a\",\n                \"paymentLinkTransactionId\": \"e8df1fb8-f0d5-4459-a7a7-1b31591f3e69\",\n                \"paymentLinkTransaction\": {\n                    \"id\": \"e8df1fb8-f0d5-4459-a7a7-1b31591f3e69\",\n                    \"couponUsage\": null\n                }\n            }\n        }\n    ]\n}\n\n ```\n\nExtra Parameter:\n\n- `startAt`\n    \n- `endAt`\n    \n- `status`\n    \n- `type`\n    \n- `customerId`\n    \n- `fields` (For field projection)\n    \n\nList of status: \\[paid, settled\\]\n\nList of types:\n\n- `generic_link`\n    \n- `payment_request`\n    \n- `payme`\n    \n- `invoice`\n    \n- `bundling`\n    \n- `physical_product`\n    \n- `event`\n    \n- `webinar`\n    \n- `digital_product`\n    \n- `coaching`\n    \n- `course`\n    \n- `cohort_based`\n    \n- `fundraising`\n    \n- `ebook`\n    \n- `podcast`\n    \n- `audiobook`\n    \n- `membership`"
+          },
+          "response": []
+        },
+        {
+          "name": "Unpaid Transaction",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transactions/unpaid?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transactions",
+                "unpaid"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "startAt",
+                  "value": "2024-01-10T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "endAt",
+                  "value": "2024-06-12T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "active",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "customerId",
+                  "value": "556ccecc-f030-4ea5-88f6-214fb682f4cb",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "paymentLinkName",
+                  "value": "Product Name",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "fields",
+                  "value": "id,amount,status,customer.name",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get unpaid data transactions:\n\nResponse Example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"hasMore\": true,\n    \"pageCount\": 2,\n    \"pageSize\": \"10\",\n    \"page\": 1,\n    \"data\": [\n        {\n            \"id\": \"231ef362-24c2-4esbc-9efa-450c00e651e0\",\n            \"createdAt\": 1676272472384,\n            \"type\": \"invoice\",\n            \"amount\": 310000,\n            \"status\": \"active\",\n            \"customerId\": \"fb4ce039-756c-4396-8af2-4137d309e640\",\n            \"paymentLinkId\": \"f92856de-5199-41d2-b788-6e68e943460c\",\n            \"customer\": {\n                \"id\": \"fb4ce039-756c-4396-8af2-4137d309e640\",\n                \"email\": \"alikusnadie@gmail.com\",\n                \"name\": \"andre\"\n            },\n            \"paymentLink\": {},\n            \"paymentUrl\": \"https://korban-motivator.mayar.shop/plt/09933f70-f4bd-4b03-9ae9-9024545bd323\"\n        }\n    ]\n}\n\n ```\n\nExtra Parameter:\n\n- `startAt`\n    \n- `endAt`\n    \n- `status`\n    \n- `customerId`\n    \n- `fields` (For field projection)\n    \n\nList of status: \\[`active, expired`\\]"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Dynamic QRCode",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 10000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/qrcode/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "qrcode",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Static QRCode",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"amount\": 10000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/qrcode/static",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "qrcode",
+                "static"
+              ]
+            },
+            "description": "**Note:** This fiture only available for user who joined before 8 mei 2023\n\nGet your QRIS QR code static:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"Success\",\n    \"data\": {\n        \"url\": \"https://media.mayar.id/images/resized/480/248cfbef-3da5-4d15-b948-3769efa3ab79.png\"\n    }\n}\n\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "All you transaction history, transaction detail, unapid transaction here"
+    },
+    {
+      "name": "Webhook",
+      "item": [
+        {
+          "name": "Get History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/webhook/history?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "startAt",
+                  "value": "2024-01-10T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "endAt",
+                  "value": "2024-05-12T06:48:09.542Z",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "SUCCESS",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "type",
+                  "value": "payment.received",
+                  "type": "text",
+                  "disabled": true
+                },
+                {
+                  "key": "urlDestination",
+                  "value": "https://example.mayar.com",
+                  "type": "text",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get data webhook history:\n\nResponse Example:\n\n``` json\n{\n  \"statusCode\": 200,\n  \"messages\": \"success\",\n  \"hasMore\": true,\n  \"pageCount\": 30,\n  \"pageSize\": 2,\n  \"page\": 1,\n  \"data\": [\n    {\n      \"id\": \"45adfbd1-eefd-4f00-9a8a-1fe49119f4ec\",\n      \"createdAt\": 1707963554296,\n      \"nextDelivery\": null,\n      \"paymentLinkId\": \"fed3dc89-eb18-4662-b47c-15e03eb91308\",\n      \"payload\": \"{\\\"event\\\":\\\"payment.received\\\",\\\"data\\\":{\\\"id\\\":\\\"57c75c38-d550-44dc-81f9-afa6615cdf5c\\\",\\\"status\\\":\\\"SUCCESS\\\",\\\"transactionStatus\\\":\\\"paid\\\",\\\"createdAt\\\":\\\"2024-02-15T02:19:11.454Z\\\",\\\"updatedAt\\\":\\\"2024-02-15T02:19:11.454Z\\\",\\\"merchantId\\\":\\\"463a9515-95d7-4bbb-945c-b1285019c019\\\",\\\"merchantName\\\":\\\"Mayar Staging\\\",\\\"merchantEmail\\\":\\\"mayarstaging@toroo.org\\\",\\\"customerName\\\":\\\"John Wick\\\",\\\"customerEmail\\\":\\\"sdfakljaaa@gmail.com\\\",\\\"customerMobile\\\":\\\"081800007778\\\",\\\"amount\\\":0,\\\"isAdminFeeBorneByCustomer\\\":null,\\\"isChannelFeeBorneByCustomer\\\":null,\\\"productId\\\":\\\"fed3dc89-eb18-4662-b47c-15e03eb91308\\\",\\\"productName\\\":\\\"Demo Mayar\\\",\\\"productType\\\":\\\"membership\\\",\\\"pixelFbp\\\":null,\\\"pixelFbc\\\":null,\\\"couponUsed\\\":null,\\\"paymentMethod\\\":null,\\\"licenseCodes\\\":[{\\\"id\\\":\\\"6f2a5307-207a-48fb-a871-87ccc9af1097\\\",\\\"licenseCode\\\":\\\"064327F71A306104\\\",\\\"createdAt\\\":\\\"2024-02-15T02:19:12.339Z\\\",\\\"updatedAt\\\":\\\"2024-02-15T02:19:12.445Z\\\"}]}}\",\n      \"status\": \"SUCCESS\",\n      \"type\": \"payment.received\",\n      \"updatedAt\": 1707963554296,\n      \"userId\": \"463a9515-95d7-4bbb-945c-b1285019c019\",\n      \"paymentLinkTransactionId\": \"57c75c38-d550-44dc-81f9-afa6615cdf5c\",\n      \"urlDestination\": \"https://eotnx82v80xl6r3.m.pipedream.net\",\n      \"responsePayload\": \"<p class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27;><strong class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27;>Success!</b></p>\\n<p class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27;>To customize this response, check out our docs <a class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; class=&#x27;preserveHtml&#x27; href=\\\"https://pipedream.com/docs/workflows/steps/triggers/#customizing-the-http-response\\\">here</a></p>\\n\",\n      \"source\": \"AUTOMATIC\"\n    }\n  ]\n}\n\n ```\n\nList of types: \\[`SUCCESS, FAILED`\\]"
+          },
+          "response": []
+        },
+        {
+          "name": "Register URL Hook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"urlHook\": \"https://example.mayar.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "register"
+              ]
+            },
+            "description": "Register your URL Hook for Webhook\n\nResponse Example:\n\n``` json\n{\n  \"statusCode\": 200,\n  \"messages\": \"success\"\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Test URL Hook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"urlHook\": \"https://example.mayar.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "test"
+              ]
+            },
+            "description": "Testing your URL Hook for Webhook\n\nResponse Example:\n\n``` json\n{\n  \"statusCode\": 200,\n  \"messages\": \"success\"\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Retry History",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"webhookHistoryId\": \"9f8050f0-9a58-4432-bf36-a7eeff7d6aea\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhook/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "webhook",
+                "retry"
+              ]
+            },
+            "description": "Retry your webhook history data\n\nResponse Example:\n\n``` json\n{\n  \"statusCode\": 200,\n  \"messages\": \"success\"\n}\n\n ```"
+          },
+          "response": []
+        }
+      ],
+      "description": "## **About Webhook**\n\nWebhook provide a way for notifications to be delivered to an external web server whenever certain event occur in Mayar.\n\n## **Add a New Webhook**\n\nYou can configure Webhooks via the Mayar dashboard, here are the steps:\n\n1. For starting using Mayar Webhook, you need account at [https://mayar.id.](https://mayar.id.) Please use [https://web.mayar.club](https://web.mayar.club) for testing\n    \n2. Go to Integration -> Webhook page\n    \n3. In the \"URL Webhook\" field, input the URL you got from a third-party integration platform (such as pipedream, zapier, or others) to trigger and send the webhook event\n    \n4. Click save then test the URL to see the status of the Webhook URL.\n    \n\n## **Request Method**\n\nThe format prepared by the engine is ​JSON​. with Method use `POST` and `application/json` for Content-type\n\n## **Event Type**\n\nMessage event webhooks can be triggered by several types of events:\n\n| Event Name | Description |\n| --- | --- |\n| **payment.received** | Event triggered after the customer makes a payment / has completed the payment |\n| **payment.reminder** | Event triggered if the customer doesn't complete the payment after 29 minutes |\n| **shipper.status** | Event triggered if tracking for physical product purchases changed |\n| **membership.memberUnsubscribed** | Event triggered if your membership client unsubscribe |\n| **membership.memberExpired** | Event triggered if your membership client expired |\n| **membership.changeTierMemberRegistered** | Event triggered if your membership client change Tier or Package membership |\n| **membership.newMemberRegistered** | Event triggered if your membership client subscribe / new subscribe member |\n\n**Event payment.received payload**\n\npayload that will be sent to the webhook server URL when there is a transaction\n\n``` json\n{\n  \"event\": \"payment.received\",\n  \"data\": {\n    \"id\": \"9356ec92-32ae-4d99-a1a7-51b11dff4d84\",\n    \"transactionId\": \"9356ec92-32ae-4d99-a1a7-51b11dff4d84\",\n    \"status\": \"SUCCESS\",\n    \"transactionStatus\": \"created\",\n    \"createdAt\": 1693817623264,\n    \"updatedAt\": 1693817626638,\n    \"merchantId\": \"348e083d-315a-4e5c-96b1-5a2a98c48413\",\n    \"merchantName\": \"Malo Gusto\",\n    \"merchantEmail\": \"aldodwier@gmail.com\",\n    \"customerName\": \"Student Test\",\n    \"customerEmail\": \"student@student.com\",\n    \"customerMobile\": \"0815\",\n    \"amount\": 1029,\n    \"isAdminFeeBorneByCustomer\": true,\n    \"isChannelFeeBorneByCustomer\": true,\n    \"productId\": \"e2b3f5d5-0c62-47ba-8a01-6c1c209e0f77\",\n    \"productName\": \"Kelas Pemrograman Web Dasar\",\n    \"productType\": \"course\",\n    \"pixelFbp\": \"fb.1.1693462870069.763035785\",\n    \"pixelFbc\": null,\n  }\n}\n\n ```\n\n## Parameter Description\n\nEach type of webhook sends a slightly different payload data.\n\n| **Field** | **Type** | **Description** |\n| --- | --- | --- |\n| `event.received` | `String` | `Event type` |\n| `data.id` | `String` | `Id webhook` |\n| `data.status` | `Booelan` | `Status transaction` |\n| `data.createdAt` | `Timestamp` | `Date transaction created` |\n| `data.updatedAt` | `Timestamp` | `Updated transaction date` |\n| `data.merchantId` | `String` | `Your merchant Id` |\n| `data.merchantEmail` | `String` | `Your Account Email` |\n| `data.merchantName` | `String` | `Your Account name` |\n| `data.customerName` | `String` | `Customer Name` |\n| `data.customerEmail` | `String` | `Customer Email` |\n| `data.customerMobile` | `String` | `Customer Handphone Number` |\n| `data.amount` | `Int` | `Amount for this transaction` |\n| `data.isAdminFeeBorneByCustomer` | `Booelan` | `true if admin fee pay by customer` |\n| `data.isChannelFeeBorneByCustomer` | `Booelan` | `true if channel fee pay by customer` |\n| `data.productId` | `String` | `Id produc` |\n| `data.productName` | `String` | `name your product` |\n| `data.productType` | `String` | `type your product` |\n| `data.pixelFbp` | `String` | `pixelFbp for this transaction` |\n| `data.pixelFbc` | `String` | `pixelFbc for this transaction` |\n| `data.addOn` | `Array` | `only available if your customer add addOn option on transaction` |\n| `data.custom_field` | `Array` | `it only available if you set custom form on your product` |\n\n**Data Custom_field Example**\n\n``` json\n\"custom_field\": [\n            {\n                \"name\": \"Nama klinik\",\n                \"description\": \"\",\n                \"fieldType\": \"text\",\n                \"isRequired\": true,\n                \"key\": \"10d8e7db-f015-4eec-a888-6483cc097f12\",\n                \"type\": \"string\",\n                \"value\": \"klink medika farma\"\n            },\n            {\n                \"name\": \"Alamat klinik\",\n                \"description\": \"\",\n                \"fieldType\": \"text\",\n                \"isRequired\": false,\n                \"key\": \"5dd64b24-3390-409c-860c-7e4378ff498f\",\n                \"type\": \"string\",\n                \"value\": \"jl pancoran raya no 23\"\n            },\n            {\n                \"name\": \"Nomor Telepon Klinik\",\n                \"description\": \"\",\n                \"fieldType\": \"text\",\n                \"isRequired\": false,\n                \"key\": \"613be59b-0b8c-4af8-a616-e353009c8df5\",\n                \"type\": \"string\",\n                \"value\": \"085797522261\"\n            },\n            {\n                \"name\": \"Nama Penanggung Jawab\",\n                \"description\": \"\",\n                \"fieldType\": \"text\",\n                \"isRequired\": false,\n                \"key\": \"220d9095-b15a-45bc-9829-63cc25f4e854\",\n                \"type\": \"string\",\n                \"value\": \"ali\"\n            }\n        ]\n\n ```\n\neach object on custom_field is representative your custom form field who set up from dashboard before.\n\n**payment.reminder Payload**\n\npayload that will be sent to the webhook server URL when there is a transaction that has not been paid by your customer for more than 29 minutes\n\n``` json\n{\n  \"event\": \"payment.reminder\",\n  \"data\": {\n    \"id\": \"b147e908-bba4-4337-ab03-bf9be504a539\",\n    \"status\": \"SUCCESS\",\n    \"transactionStatus\": \"created\",\n    \"createdAt\": 1693550488964,\n    \"updatedAt\": 1693550703627,\n    \"merchantId\": \"4dba4996-7d74-483e-99fe-b52c60368cb5\",\n    \"merchantEmail\": \"kugutsu.hiruko@gmail.com\",\n    \"customerName\": \"andre\",\n    \"customerEmail\": \"alikusnadie@gmail.com\",\n    \"customerMobile\": \"085\",\n    \"amount\": 120000,\n    \"isAdminFeeBorneByCustomer\": false,\n    \"isChannelFeeBorneByCustomer\": false,\n    \"productId\": \"f03694c1-2f6d-45c2-8be2-138f9fd34bbf\",\n    \"productName\": \"juak e book ranl\",\n    \"productType\": \"digital_product\",\n    \"pixelFbp\": null,\n    \"pixelFbc\": null,\n    \"paymentUrl\": \"https://korban-motivator.mayar.shop/plt/b147e908-bba4-4337-ab03-bf9be504a539?webhook=true\"\n  }\n}\n\n ```\n\n**membership.memberUnsubscribed Payload**\n\npayload that will be sent to your server URL when your customer membership unsubscribe\n\n``` json\n{\n  \"event\": \"membership.memberUnsubscribed\",\n  \"data\": {\n    \"merchantId\": \"4dba4996-7d74-483e-99fe-b52c60368cb5\",\n    \"merchantName\": \"andrea\",\n    \"status\": \"INACTIVE\",\n    \"memberId\": \"BQ1UVCFB\",\n    \"customerName\": \"andret\",\n    \"customerEmail\": \"kugutsu.hiruko@gmail.com\",\n    \"customerMobile\": \"085797522261\"\n  }\n}\n\n ```\n\n**membership.memberExpired Payload**\n\npayload that will be sent to your server URL when your customer membership status has expired\n\n``` json\n{\n  \"event\": \"membership.memberExpired\",\n  \"data\": {\n    \"merchantId\": \"4dba4996-7d74-483e-99fe-b52c6873jrjb\",\n    \"merchantName\": \"andrea\",\n    \"status\": \"INACTIVE\",\n    \"memberId\": \"5U2FV9PD\",\n    \"customerName\": \"andika\",\n    \"customerEmail\": \"alikusnadie@gmail.com\",\n    \"customerMobile\": \"0815\"\n  }\n}\n\n ```\n\n**shipper.status Payload**\n\npayload hat will be sent to your server URL when tracking status updated\n\n``` json\n{\n  \"event\": \"shipper.status\",\n  \"data\": {\n    \"id\": \"ebee706c-7216-48b1-a770-8971ca0c32bb\",\n    \"status\": \"SUCCESS\",\n    \"createdAt\": \"2023-09-05T05:17:05.964Z\",\n    \"merchantId\": \"4dba4996-7d74-483e-99fe-b52c60368cb5\",\n    \"merchantName\": \"andrea\",\n    \"merchantEmail\": \"kugutsu.hiruko@gmail.com\",\n    \"customerName\": \"andret\",\n    \"customerEmail\": \"kugutsu.hiruko@gmail.com\",\n    \"customerMobile\": \"0909\",\n    \"trackingUrl\": \"https://shipper.id/track/239K3W5VJYWD3\",\n    \"trackingCode\": \"239K3W5VJYWD3\",\n    \"trackingDescription\": \"Data order sudah masuk ke sistem\",\n    \"productId\": \"4be2cb72-b0c6-474e-b057-fc7cd7f34dbe\",\n    \"productName\": \"produk miniatur ular\",\n    \"productType\": \"physical_product\"\n  }\n}\n\n ```"
+    },
+    {
+      "name": "Software License Code",
+      "item": [
+        {
+          "name": "Verify License",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"licenseCode\": \"YOUR-LICENSE-CODE\",\n    \"productId\": \"YOUR-PRODUCT-ID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.mayar.id/software/v1/license/verify",
+              "protocol": "https",
+              "host": [
+                "api",
+                "mayar",
+                "id"
+              ],
+              "path": [
+                "software",
+                "v1",
+                "license",
+                "verify"
+              ]
+            },
+            "description": "### Verify License\n\nThis endpoint is used to verify a license by providing the license code and product ID.\n\n#### Request Body\n\n- `licenseCode` (string): The license code to be activated.\n- `productId` (string): The ID of the product associated with the license.\n    \n\n#### Response\n\nA successful response will have a statusCode of 200. The response body will contain an object named `LicenseCode`.\n\n- `statusCode` (integer): Indicates the status of the activation process.\n- `message` (string): Additional messages related to the activation process.\n- licenseCode (Object).\n    \n\nBelow is an example of a successfull response body.\n\n``` json\n{\n    \"statusCode\": 200,\n    \"isLicenseActive\": true,\n    \"licenseCode\": {\n        \"licenseCode\": \"LICENSECODE12345\",\n        \"status\": \"ACTIVE\",\n        \"expiredAt\": \"2025-12-12T19:46:24.000Z\",\n        \"transactionId\": \"994d4071-a81e-4558-a854-47530eea9b6d\",\n        \"productId\": \"84d1d247-a8b3-4c7d-96f0-cf276edb7c33\",\n        \"customerId\": \"6a38cf26-6bab-42c8-92be-72f3a9fd4c33\",\n        \"customerName\": \"John Doe\",\n        \"customerEmail\": \"johndoe@gmail.com\",\n        \"activationLimit\": \"Tidak terbatas\",\n        \"useCount\": 10,\n        \"createdAt\": \"2024-02-12T08:41:13.579Z\",\n        \"updatedAt\": \"2024-02-12T08:57:36.047Z\"\n    }\n}\n\n ```\n\nBelow is an example of a failed response body.\n\n``` json\n{\n    \"statusCode\": 400,\n    \"message\": \"There's no license with code WRONGLICENSE123 and product id 84d1d247-a8b3-4c7d-96f0-cf276edb7c33 registered in user mayaruser@gmail.com.\"\n}\n\n ```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Lisensi Software adalah sebuah fitur di mayar yang ditujukan untuk menjual software di platform mayar.\n\nFitur ini akan memudahkan seorang penjual yang ingin menjual software mereka tanpa harus pusing memikirkan pembayaran, kode lisensi unik untuk setiap pelanggan, cara memverifikasi sebuah kode lisensi dan kapan masa aktif kode tersebut berakhir.\n\nMayar akan mengurus semua hal tersebut. Merchant tinggal membuat produk diawal dan membuat pengaturan produk."
+    },
+    {
+      "name": "SaaS Membership License",
+      "item": [
+        {
+          "name": "Verify License",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"licenseCode\": \"YOUR-LICENSE-CODE\",\n    \"productId\": \"YOUR-PRODUCT-ID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.mayar.id/saas/v1/license/verify",
+              "protocol": "https",
+              "host": [
+                "api",
+                "mayar",
+                "id"
+              ],
+              "path": [
+                "saas",
+                "v1",
+                "license",
+                "verify"
+              ]
+            },
+            "description": "### Verify License\n\nThis endpoint is used to verify a license by providing the license code and product ID.\n\n#### Request Body\n\n- `licenseCode` (string): The license code to be activated.\n- `productId` (string): The ID of the product associated with the license.\n    \n\n#### Response\n\nA successful response will have a statusCode of 200. The response body will contain an object named `LicenseCode`.\n\n- `statusCode` (integer): Indicates the status of the activation process.\n- `message` (string): Additional messages related to the activation process.\n- licenseCode (Object).\n    \n\nBelow is an example of a successfull response body.\n\n``` json\n{\n    \"statusCode\": 200,\n    \"isLicenseActive\": true,\n    \"licenseCode\": {\n        \"licenseCode\": \"LICENSECODE12345\",\n        \"status\": \"ACTIVE\",\n        \"expiredAt\": \"2025-12-12T19:46:24.000Z\",\n        \"transactionId\": \"994d4071-a81e-4558-a854-47530eea9b6d\",\n        \"productId\": \"84d1d247-a8b3-4c7d-96f0-cf276edb7c33\",\n        \"customerId\": \"6a38cf26-6bab-42c8-92be-72f3a9fd4c33\",\n        \"customerName\": \"John Doe\",\n        \"customerEmail\": \"johndoe@gmail.com\",\n        \"activationLimit\": \"Tidak terbatas\",\n        \"useCount\": 10,\n        \"createdAt\": \"2024-02-12T08:41:13.579Z\",\n        \"updatedAt\": \"2024-02-12T08:57:36.047Z\",\n        \"membershipTierId\": \"c96850f9-b379-4ed3-bcf2-6d88a87bd20c\",\n        \"membershipTierName\": \"Master Black Belt Membership\"\n    }\n}\n\n ```\n\nBelow is an example of a failed response body.\n\n``` json\n{\n    \"statusCode\": 400,\n    \"message\": \"There's no license with code WRONGLICENSE123 and product id 84d1d247-a8b3-4c7d-96f0-cf276edb7c33 registered in user mayaruser@gmail.com.\"\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Activate License",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR-TOKEN-API",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"licenseCode\":  \"YOUR-LICENSE-CODE\",\n    \"productId\":  \"YOUR-PRODUCT-ID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.mayar.id/saas/v1/license/activate",
+              "protocol": "https",
+              "host": [
+                "api",
+                "mayar",
+                "id"
+              ],
+              "path": [
+                "saas",
+                "v1",
+                "license",
+                "activate"
+              ]
+            },
+            "description": "### Activate License\n\nThis endpoint is used to activate a license by providing the license code and product ID.\n\nBy performing this action, the status of the license code will change to ACTIVE.\n\n#### Request Body\n\n- `licenseCode` (string): The license code to be activated.\n    \n- `productId` (string): The ID of the product associated with the license.\n    \n\n#### Response\n\nA successful response will have a statusCode of 200.\n\n- `statusCode` (integer): Indicates the status of the activation process.\n    \n- `message` (string): Additional messages related to the activation process.\n    \n\nBelow is an example of a successfull response body.\n\n``` json\n{\n    \"statusCode\": 200,\n    \"message\": \"Success updating license code status to ACTIVE.\"\n}\n\n ```\n\nBelow is an example of a failed response body.\n\n``` json\n{\n    \"statusCode\": 400,\n    \"message\": \"License code LICENSECODE123 has already active.\"\n}\n\n ```"
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate License",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer YOUR-TOKEN-API",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"licenseCode\":  \"YOUR-LICENSE-CODE\",\n    \"productId\":  \"YOUR-PRODUCT-ID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api.mayar.id/saas/v1/license/deactivate",
+              "protocol": "https",
+              "host": [
+                "api",
+                "mayar",
+                "id"
+              ],
+              "path": [
+                "saas",
+                "v1",
+                "license",
+                "deactivate"
+              ]
+            },
+            "description": "### Deactivate License\n\nThis endpoint is used to deactivate a license by providing the license code and product ID.\n\nBy performing this action, the status of the license code will change to INACTIVE.\n\n#### Request Body\n\n- `licenseCode` (string): The license code to be activated.\n- `productId` (string): The ID of the product associated with the license.\n    \n\n#### Response\n\nA successful response will have a statusCode of 200.\n\n- `statusCode` (integer): Indicates the status of the activation process.\n- `message` (string): Additional messages related to the deactivation process.\n    \n\nBelow is an example of a successfull response body.\n\n``` json\n{\n    \"statusCode\": 200,\n    \"message\": \"Success updating license code status to INACTIVE.\"\n}\n\n ```\n\nBelow is an example of a failed response body.\n\n``` json\n{\n    \"statusCode\": 400,\n    \"message\": \"License code LICENSECODE123 has already inactive.\"\n}\n\n ```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Membership Saas adalah sebuah fitur di mayar yang ditujukan untuk menjual software di platform mayar dengan sistem subscription.\n\nFitur ini akan memudahkan seorang penjual yang ingin menjual software mereka tanpa harus pusing memikirkan pembayaran, kode lisensi unik untuk setiap pelanggan, cara memverifikasi sebuah kode lisensi dan kapan masa aktif kode tersebut berakhir.\n\nMayar akan mengurus semua hal tersebut. Merchant tinggal membuat produk diawal dan membuat pengaturan produk."
+    },
+    {
+      "name": "Membership",
+      "item": [
+        {
+          "name": "Get Membership Member Detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/membership-member-detail/f5103e7c-9e30-467b-bc32-a96fdcb65849?memberId=PUYSW40N",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "membership-member-detail",
+                "f5103e7c-9e30-467b-bc32-a96fdcb65849"
+              ],
+              "query": [
+                {
+                  "key": "memberId",
+                  "value": "PUYSW40N"
+                }
+              ]
+            },
+            "description": "Get your membership member detail data:\n\nRequest Path Params\n\n- `productId` (string)\\[mandatory\\]: The unique identifier of the product associated with the credit balance.\n    \n\nRequest Query Params\n\n- `memberId` (string)\\[mandatory\\]: The unique identifier of the member whose credit balance is being queried.\n    \n\n##### Response\n\n- `statusCode` (integer): Indicates the status of the activation process.\n    \n- `message` (string): Additional messages related to the activation process.\n    \n- `customerEmail` (string): Email address of the customer.\n    \n- `customerName` (string): Full name of the customer.\n    \n- `customerMobile` (string): Mobile phone number of the customer.\n    \n- `status` (string): Current status of the customer (e.g., \"active\").\n    \n- `nextPayment` (string): ISO 8601 timestamp (UTC) of the customer's next payment.\n    \n- `expiredAt` (string): ISO 8601 timestamp (UTC) of the customer's membership expired.\n    \n- `memberId` (string): Membership code associated with the customer.\n    \n- `membershipTierId` (string): ID of the customer's membership tier.\n    \n- `membershipTier` (object): Details of the customer’s membership tier.\n    \n    - `id` (string): ID of the membership tier.\n        \n    - `name` (string): Name of the membership tier.\n        \n\nBelow is an example of a successfull response body:\n\nResponse example:\n\n```\n{\n    \"statusCode\": 200,\n    \"messages\": \"success\",\n    \"data\": {\n        \"customerEmail\": \"johndoe@gmail.com\",\n        \"customerName\": \"john doe\",\n        \"customerMobile\": \"08777777777\",\n        \"status\": \"active\",\n        \"nextPayment\": \"2025-11-20T09:10:57.994Z\",\n        \"expiredAt\": \"2025-11-21T09:10:57.994Z\",\n        \"memberId\": \"PUYSW40N\",\n        \"membershipTierId\": \"137f0fa9-8aa5-4fec-947e-6ef223590861\",\n        \"membershipTier\": {\n            \"id\": \"137f0fa9-8aa5-4fec-947e-6ef223590861\",\n            \"name\": \"paket 3\"\n        }\n    }\n}\n\n ```"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "apiKey",
+      "value": "Bearer Paste-Your-API-Key-Here",
+      "type": "string"
+    },
+    {
+      "key": "baseUrl",
+      "value": "https://api.mayar.id/hl/v1"
+    }
+  ]
+}
