@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql, desc, ne, isNotNull } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events, eventRegistrationLogs, committeeAccounts, transactions } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
@@ -1097,36 +1097,20 @@ admin.post(
 //       }
 //     }
 //   }
-//
-// Query Params: None
-// Body: None
-// ─────────────────────────────────────────────────────────────────────────────
 admin.get(
   '/transactions',
   committeeMiddleware({ roles: ['Admin', 'Committee'] }),
   async (c) => {
     const startTime = Date.now();
-    console.log('[admin.transactions.list] ===== START GET /transactions =====');
-    logInfo('admin.transactions.list', 'Fetching all payment transactions');
-
+    
     try {
       const user = c.get('user');
       const committee = c.get('committee');
-      
-      console.log('[admin.transactions.list] ─── REQUEST CONTEXT ───');
-      console.log('[admin.transactions.list] User ID:', user?.id);
-      console.log('[admin.transactions.list] User ID type:', typeof user?.id);
-      console.log('[admin.transactions.list] Committee ID:', committee?.id);
-      console.log('[admin.transactions.list] Committee role:', committee?.role);
-      console.log('[admin.transactions.list] Committee division:', committee?.division);
-      console.log('[admin.transactions.list] Committee is active:', committee?.isActive);
 
       const db = createDb(c.env);
       const storage = getStorage(c.env);
 
-      // Fetch all transactions with team and competition info
-      console.log('[admin.transactions.list] ─── DATABASE QUERY ───');
-      console.log('[admin.transactions.list] ⏳ Executing SELECT query on transactions table with competition join...');
+      // Fetch only MANUAL transactions (ones with paymentProofUrl - requires admin verification)
       const allTransactions = await db
         .select({
           id: transactions.id,
@@ -1144,19 +1128,10 @@ admin.get(
         .from(transactions)
         .innerJoin(teamAccounts, eq(transactions.teamId, teamAccounts.id))
         .innerJoin(competitions, eq(teamAccounts.competitionId, competitions.id))
+        .where(isNotNull(transactions.paymentProofUrl)) // Only manual payments with proof
         .orderBy(desc(transactions.createdAt));
 
-      console.log('[admin.transactions.list] ✅ Database query completed');
-      console.log('[admin.transactions.list] Total transactions returned:', allTransactions.length);
-
-      logInfo(
-        'admin.transactions.list',
-        `Found ${allTransactions.length} total transactions`,
-      );
-
       // Generate signed URLs for each transaction
-      console.log('[admin.transactions.list] ─── GENERATING SIGNED URLS ───');
-      console.log('[admin.transactions.list] ⏳ Processing signed URLs for all transactions...');
       const transactionsWithUrls = await Promise.all(
         allTransactions.map(async (txn) => {
           let signedUrl: string | null = null;
@@ -1173,12 +1148,9 @@ admin.get(
 
               if (!urlError && url) {
                 signedUrl = url;
-                console.log(`[admin.transactions.list] ✅ Generated signed URL for transaction ${txn.id}`);
-              } else {
-                console.log(`[admin.transactions.list] ❌ Failed to generate URL for ${txn.id}: ${urlError?.message}`);
               }
             } catch (error) {
-              console.log(`[admin.transactions.list] ❌ Error generating URL for ${txn.id}:`, error);
+              // Silent fail for URL generation
             }
           }
 
@@ -1198,13 +1170,7 @@ admin.get(
         }),
       );
 
-      console.log('[admin.transactions.list] ✅ All signed URLs generated');
-
-      console.log('[admin.transactions.list] ─── FULL TRANSACTION DATA ───');
-      console.log('[admin.transactions.list] All transactions:', JSON.stringify(transactionsWithUrls, null, 2));
-
       // Group by verification status
-      console.log('[admin.transactions.list] ─── GROUPING BY STATUS ───');
       const byStatus: Record<string, typeof transactionsWithUrls> = {
         Pending: [],
         Verified: [],
@@ -1218,65 +1184,22 @@ admin.get(
         }
       }
 
-      console.log('[admin.transactions.list] Status breakdown:', {
-        Pending: byStatus.Pending.length,
-        Verified: byStatus.Verified.length,
-        Rejected: byStatus.Rejected.length,
-      });
-
-      if (byStatus.Pending.length > 0) {
-        console.log('[admin.transactions.list] PENDING TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Pending, null, 2));
-      }
-      
-      if (byStatus.Verified.length > 0) {
-        console.log('[admin.transactions.list] VERIFIED TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Verified, null, 2));
-      }
-      
-      if (byStatus.Rejected.length > 0) {
-        console.log('[admin.transactions.list] REJECTED TRANSACTIONS (Full Details):', JSON.stringify(byStatus.Rejected, null, 2));
-      }
-
       const duration = Date.now() - startTime;
-      console.log('[admin.transactions.list] ─── RESPONSE ───');
-      console.log('[admin.transactions.list] Response structure:', {
+      console.log(`[GET] /api/admin/transactions - 200 (${duration}ms)`);
+      
+      return c.json({
         success: true,
         totalTransactions: transactionsWithUrls.length,
         pendingCount: byStatus.Pending.length,
         verifiedCount: byStatus.Verified.length,
         rejectedCount: byStatus.Rejected.length,
-      });
-      
-      console.log(`[admin.transactions.list] ===== SUCCESS (${duration}ms) =====`);
-      logInfo(
-        'admin.transactions.list',
-        `Successfully fetched transactions - Pending: ${byStatus.Pending.length}, Verified: ${byStatus.Verified.length}, Rejected: ${byStatus.Rejected.length} (${duration}ms)`,
-      );
-
-      return c.json({
-        success: true,
-        data: {
-          total: transactionsWithUrls.length,
-          byStatus,
-        },
+        transactions: transactionsWithUrls,
       });
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error(`[admin.transactions.list] ===== ERROR (${duration}ms) =====`);
-      console.error('[admin.transactions.list] Error type:', error?.constructor?.name);
-      console.error('[admin.transactions.list] Error details:', error);
-      if (error instanceof Error) {
-        console.error('[admin.transactions.list] Error message:', error.message);
-        console.error('[admin.transactions.list] Error stack:', error.stack);
-      }
-      logError(
-        'admin.transactions.list',
-        `Error fetching transactions (${duration}ms):`,
-        error,
-      );
-      return c.json(
-        { error: 'Failed to fetch transactions', details: String(error) },
-        500,
-      );
+      console.log(`[GET] /api/admin/transactions - 500 (${duration}ms)`);
+      console.error('[admin.transactions.list]', error);
+      return c.json({ error: 'Failed to fetch transactions' }, 500);
     }
   },
 );
@@ -1572,14 +1495,20 @@ admin.patch(
       };
       console.log('[admin.transactions.verify] Update payload:', JSON.stringify(updatePayload, null, 2));
       
-      const [updated] = await db
-        .update(transactions)
-        .set(updatePayload)
-        .where(eq(transactions.id, transactionId))
-        .returning();
+      // Update transaction
+      let updated = existing;
+      await db.transaction(async (tx) => {
+        const [result] = await tx
+          .update(transactions)
+          .set(updatePayload)
+          .where(eq(transactions.id, transactionId))
+          .returning();
 
-      console.log('[admin.transactions.verify] ✅ Transaction updated successfully');
-      console.log('[admin.transactions.verify] Updated transaction (full data):', JSON.stringify(updated, null, 2));
+        console.log('[admin.transactions.verify] ✅ Transaction updated successfully');
+        console.log('[admin.transactions.verify] Updated transaction (full data):', JSON.stringify(result, null, 2));
+        
+        updated = result;
+      });
 
       console.log('[admin.transactions.verify] ─── CHANGES SUMMARY ───');
       console.log('[admin.transactions.verify] Change log:', {
