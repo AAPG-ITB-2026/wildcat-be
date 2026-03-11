@@ -3,10 +3,15 @@ import type { InferSelectModel } from 'drizzle-orm';
 import type { committeeAccounts } from '../db/schema.js';
 
 export type Env = {
-    HYPERDRIVE: Hyperdrive;
-
     SUPABASE_URL: string;
     SUPABASE_ANON_KEY: string;
+    DATABASE_URL: string;
+    // Mayar Payment Gateway
+    MAYAR_API_KEY: string;
+    MAYAR_MERCHANT_ID: string;
+    // Legacy Midtrans (for backwards compatibility during migration)
+    MIDTRANS_SERVER_KEY?: string;  
+    HYPERDRIVE: Hyperdrive;
     SUPABASE_JWT_SECRET: string;
     SUPABASE_SERVICE_ROLE_KEY: string;
 
