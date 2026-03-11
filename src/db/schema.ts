@@ -16,9 +16,9 @@ import {
 // ==========================================
 export const roleEnum = pgEnum("role", ["Admin", "Committee"]);
 export const verificationStatusEnum = pgEnum("verification_status", ["Pending", "Verified", "Rejected"]);
-export const audienceEnum = pgEnum("target_audience", ["All", "Paper_Poster", "BCC", "GnG", "HighSchool"]);
 export const teamStatusEnum = pgEnum("team_status", ["Registered", "Document_Verified", "Paid"]);
 export const transactionStatusEnum = pgEnum("transaction_status", ["settlement", "pending", "deny", "cancel", "expire", "failure", "capture"]);
+export const audienceEnum = pgEnum("target_audience", ["All", "Paper and Poster Case Competition", "Business Case Competition", "Geology and Geophysics Case Study Competition (GnG)", "Highschool Essay Competition"]);
 
 // ==========================================
 // 1. INTERNAL ADMINISTRATION
@@ -94,11 +94,11 @@ export const teamAccounts = pgTable("team_accounts", {
 export const teamAdministration = pgTable("team_administration", {
   teamId: uuid("team_id").primaryKey().references(() => teamAccounts.id).notNull(), // Enforces 1:1 relation
   
-  leadKtm: text("lead_ktm").notNull(), // Cloudflare R2 URLs
+  leadKtm: text("lead_ktm"), // Cloudflare R2 URLs
   m1Ktm: text("m1_ktm"),
   m2Ktm: text("m2_ktm"),
-  twibbonProof: text("twibbon_proof").notNull(),
-  posterProof: text("poster_proof").notNull(),
+  twibbonProof: text("twibbon_proof"),
+  posterProof: text("poster_proof"),
   
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
   verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
@@ -117,7 +117,7 @@ export const transactions = pgTable("transactions", {
   
   transactionStatus: transactionStatusEnum("transaction_status").default("pending").notNull(),
   verificationStatus: verificationStatusEnum("verification_status").default("Pending").notNull(),
-  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id),
+  verifiedBy: uuid("verified_by").references(() => committeeAccounts.id), 
   rejectionNotes: text("rejection_notes"),
   
   creationTime: timestamp("creation_time").defaultNow().notNull(),
@@ -179,5 +179,33 @@ export const announcements = pgTable("announcements", {
   attachmentUrl: text("attachment_url"),
   
   scheduledFor: timestamp("scheduled_for"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONFIG
+// ==========================================
+export const appConfig = pgTable("app_config", {
+  key: varchar("key", { length: 100 }).primaryKey().notNull(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// APP CONTENT
+// ==========================================
+export const appContent = pgTable("app_content", {
+  section: varchar("section", { length: 100 }).primaryKey().notNull(),
+  content: text("content").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// 6. ANALYTICS LOGS
+// ==========================================
+
+export const eventRegistrationLogs = pgTable("event_registration_logs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  eventId: uuid("event_id").references(() => events.id).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

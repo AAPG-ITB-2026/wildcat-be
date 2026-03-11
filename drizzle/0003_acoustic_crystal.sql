@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "submissions_team_requirement_idx" ON "submissions" USING btree ("team_id","requirement_id");
