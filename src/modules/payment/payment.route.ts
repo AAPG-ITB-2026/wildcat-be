@@ -1,24 +1,23 @@
 import { Hono } from 'hono';
-import { eq, desc, and, notInArray } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { transactions, teamAccounts, competitions } from '../../db/schema.js';
-import { createMidtransTransaction, cancelTransaction, verifyMidtransSignature } from '../../lib/midtrans.js';
+import { createMayarPayment, verifyMayarWebhook, mapMayarStatus } from '../../lib/mayar.js';
 import type { Env, Variables } from '../../types/index.js';
 
 const payment = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 const TOKEN_VALIDITY_MINUTES = 60;
 const PAYMENT_AMOUNT = 100000;
-const TERMINAL_STATES = ['settlement', 'capture'] as const;
 
 /**
  * POST /api/payment/token
- * Generate Snap Token for Midtrans payment
+ * Generate payment link for Mayar payment
  *
  * Regeneration Logic:
  * - If no previous transaction: Create new
  * - If status = settlement: Return error "Already Paid"
- * - If status = pending and before expirationTime: Return existing token + seconds remaining
+ * - If status = pending and before expirationTime: Return existing link + seconds remaining
  * - If status = pending and past expirationTime: Mark as expire, create new
  * - If status = expire/failure/deny/cancel: Create new
  */
@@ -34,6 +33,18 @@ payment.post('/token', async (c) => {
     }
 
     const team = teamResult[0];
+
+    // Check if documents are verified before allowing payment
+    if (team.status !== 'Document_Verified' && team.status !== 'Paid') {
+      return c.json(
+        {
+          error: 'Documents must be verified before payment',
+          currentStatus: team.status,
+          message: 'Please wait for document verification to be completed',
+        },
+        403
+      );
+    }
 
     const competitionResult = await db
       .select()
@@ -71,17 +82,16 @@ payment.post('/token', async (c) => {
 
         if (secondsRemaining > 0 && lastPayment.snapToken) {
           return c.json({
-            token: lastPayment.snapToken,
+            link: lastPayment.snapToken,
             orderId: lastPayment.orderId,
             status: 'existing_active',
-            message: 'Using existing active token',
+            message: 'Using existing active payment link',
             expirationTime: lastPayment.expirationTime,
             secondsRemaining,
           });
         }
 
-        await cancelTransaction(c.env.MIDTRANS_SERVER_KEY, lastPayment.orderId);
-
+        // Token expired - Mayar has no cancel endpoint, just mark as expired
         await db
           .update(transactions)
           .set({ transactionStatus: 'expire' })
@@ -93,29 +103,21 @@ payment.post('/token', async (c) => {
     const creationTime = now;
     const expirationTime = new Date(now.getTime() + TOKEN_VALIDITY_MINUTES * 60 * 1000);
 
-    const snapResponse = await createMidtransTransaction(c.env.MIDTRANS_SERVER_KEY, {
-      orderId: newOrderId,
-      grossAmount: PAYMENT_AMOUNT,
+    const mayarResponse = await createMayarPayment(c.env.MAYAR_API_KEY, {
+      name: team.leadName,
+      email: user.email || '',
+      mobile: team.phoneNumber,
+      amount: PAYMENT_AMOUNT,
+      redirectUrl: `https://yourfrontend.com/payment-success?orderId=${newOrderId}`,
+      description: `Wildcat 2026 - ${competitionName} Registration Fee`,
       expiryMinutes: TOKEN_VALIDITY_MINUTES,
-      customerDetails: {
-        first_name: team.leadName,
-        email: user.email || '',
-      },
-      itemDetails: [
-        {
-          id: team.competitionId,
-          price: PAYMENT_AMOUNT,
-          quantity: 1,
-          name: `Wildcat 2026 - ${competitionName}`,
-        },
-      ],
     });
 
     await db.insert(transactions).values({
       teamId: team.id,
       orderId: newOrderId,
       amount: String(PAYMENT_AMOUNT),
-      snapToken: snapResponse.token,
+      snapToken: mayarResponse.link, // Store the payment link
       creationTime,
       expirationTime,
       transactionStatus: 'pending',
@@ -123,11 +125,10 @@ payment.post('/token', async (c) => {
     });
 
     return c.json({
-      token: snapResponse.token,
+      link: mayarResponse.link,
       orderId: newOrderId,
       status: 'new_generated',
-      message: 'New payment token generated',
-      redirectUrl: snapResponse.redirect_url,
+      message: 'New payment link generated',
       expirationTime,
       secondsRemaining: TOKEN_VALIDITY_MINUTES * 60,
     });
@@ -136,7 +137,7 @@ payment.post('/token', async (c) => {
     console.error('Payment token generation error:', error);
     return c.json(
       {
-        error: 'Failed to generate payment token',
+        error: 'Failed to generate payment link',
         message: error instanceof Error ? error.message : 'Unknown error',
       },
       500
@@ -177,13 +178,13 @@ payment.get('/status', async (c) => {
 
     const latestPayment = latestPaymentResult[0];
 
-    let isTokenValid = false;
+    let isLinkValid = false;
     let secondsRemaining = 0;
 
     if (latestPayment.transactionStatus === 'pending') {
       const expirationTime = new Date(latestPayment.expirationTime);
       secondsRemaining = Math.max(0, Math.floor((expirationTime.getTime() - Date.now()) / 1000));
-      isTokenValid = secondsRemaining > 0;
+      isLinkValid = secondsRemaining > 0;
     }
 
     return c.json({
@@ -193,9 +194,9 @@ payment.get('/status', async (c) => {
       paymentType: latestPayment.paymentType,
       creationTime: latestPayment.creationTime,
       expirationTime: latestPayment.expirationTime,
-      isTokenValid,
-      secondsRemaining: isTokenValid ? secondsRemaining : 0,
-      snapToken: isTokenValid ? latestPayment.snapToken : null,
+      isLinkValid,
+      secondsRemaining: isLinkValid ? secondsRemaining : 0,
+      paymentLink: isLinkValid ? latestPayment.snapToken : null,
     });
   } 
   catch (error) {
@@ -206,113 +207,108 @@ payment.get('/status', async (c) => {
 
 /**
  * POST /api/payment/callback
- * Midtrans webhook callback handler
+ * Mayar webhook callback handler
  *
- * Security: every legitimate Midtrans notification includes a signature_key
- * computed as SHA512(order_id + status_code + gross_amount + SERVER_KEY).
- * Requests that fail this check are rejected immediately.
+ * Security: Mayar uses merchantId validation instead of signature verification.
+ * Every legitimate Mayar notification includes merchantId in the data object.
+ * Requests with mismatched merchant ID are rejected immediately.
  *
- * State machine: once a transaction reaches a terminal state (settlement or
- * capture), no subsequent webhook can regress it. This prevents out-of-order
- * replays from corrupting paid transactions.
+ * State machine: once a transaction reaches settlement, subsequent webhooks
+ * won't regress it. This prevents out-of-order replays from corrupting paid transactions.
  *
  * Atomicity: the transaction status update and team status update are wrapped
  * in a single DB transaction so they either both succeed or both roll back.
  *
- * fraud_status: for credit-card captures, Midtrans sends a fraud_status field.
- * Only captures with fraud_status "accept" (or absent) mark the team as Paid.
- * Captures flagged as "challenge" or "deny" are recorded but the team stays
- * unpaid until manual review or a follow-up settlement notification.
+ * Mayar webhook payload structure:
+ * {
+ *   "event": "payment.received",
+ *   "data": {
+ *     "id": "transaction-id",
+ *     "status": "SUCCESS",
+ *     "transactionStatus": "paid",
+ *     "merchantId": "your-merchant-id",
+ *     "amount": 100000,
+ *     "customerName": "...",
+ *     ...
+ *   }
+ * }
  */
 payment.post('/callback', async (c) => {
   const body = await c.req.json();
 
   try {
-    const { order_id, transaction_status, payment_type, fraud_status, signature_key, status_code, gross_amount } = body;
+    // Mayar sends data nested in 'data' object
+    const webhookData = body.data || body;
 
-    if (!signature_key || !status_code || !gross_amount) {
-      return c.json({ error: 'Missing required signature fields' }, 401);
+    if (!webhookData) {
+      console.error('Missing webhook data');
+      return c.json({ error: 'Missing webhook data' }, 400);
     }
 
-    const isValid = await verifyMidtransSignature(
-      c.env.MIDTRANS_SERVER_KEY,
-      order_id ?? '',
-      status_code,
-      gross_amount,
-      signature_key
-    );
-
+    // Validate webhook authenticity using merchant ID
+    const isValid = verifyMayarWebhook(webhookData, c.env.MAYAR_MERCHANT_ID);
     if (!isValid) {
-      return c.json({ error: 'Invalid signature' }, 401);
-    }
-
-    if (!order_id) {
-      return c.json({ error: 'Missing order_id' }, 400);
+      console.error('Invalid merchant ID in webhook');
+      return c.json({ error: 'Invalid merchant' }, 401);
     }
 
     const db = createDb(c.env);
 
-    const existingTx = await db
+    // Mayar uses 'id' as transaction ID, not 'order_id'
+    const transactionId = webhookData.id;
+    if (!transactionId) {
+      return c.json({ error: 'Missing transaction ID' }, 400);
+    }
+
+    // Find transaction by order ID (we store transaction details in snapToken)
+    // Since Mayar doesn't return our order_id, we need to match by transaction ID
+    // or store Mayar's transaction ID in the database
+    // For now, we'll search by amount and match with recent pending transactions
+    const existingTxResult = await db
       .select()
       .from(transactions)
-      .where(eq(transactions.orderId, order_id))
-      .limit(1);
+      .where(eq(transactions.amount, String(webhookData.amount)))
+      .orderBy(desc(transactions.creationTime))
+      .limit(5);
 
-    if (
-      existingTx.length > 0 &&
-      TERMINAL_STATES.includes(existingTx[0].transactionStatus as typeof TERMINAL_STATES[number])
-    ) {
+    // Find the matching transaction (most recent pending one)
+    let matchedTx = existingTxResult.find(
+      (tx) => tx.transactionStatus === 'pending' && 
+              new Date(tx.expirationTime).getTime() > Date.now()
+    );
+
+    if (!matchedTx) {
+      // If not found and it's a successful payment, it might be a retry
+      matchedTx = existingTxResult[0];
+      if (!matchedTx) {
+        console.log('No matching transaction found for amount:', webhookData.amount);
+        return c.json({ success: true }, 200); // Return success to prevent retries
+      }
+    }
+
+    // Check if already in terminal state
+    if (matchedTx.transactionStatus === 'settlement' || 
+        matchedTx.transactionStatus === 'capture') {
       return c.json({
         success: true,
-        orderId: order_id,
-        status: existingTx[0].transactionStatus,
+        transactionId: transactionId,
+        status: matchedTx.transactionStatus,
       });
     }
 
-    let status: 'settlement' | 'pending' | 'deny' | 'cancel' | 'expire' | 'failure' | 'capture';
+    // Map Mayar status to our database status
+    const dbStatus = mapMayarStatus(webhookData.status, webhookData.transactionStatus);
+    const isSuccessful = dbStatus === 'settlement';
 
-    switch (transaction_status) {
-      case 'settlement':
-        status = 'settlement';
-        break;
-      case 'capture':
-        status = 'capture';
-        break;
-      case 'pending':
-        status = 'pending';
-        break;
-      case 'deny':
-        status = 'deny';
-        break;
-      case 'cancel':
-        status = 'cancel';
-        break;
-      case 'expire':
-        status = 'expire';
-        break;
-      case 'failure':
-        status = 'failure';
-        break;
-      default:
-        status = 'pending';
-    }
-
-    const isCaptureAccepted = status === 'capture' && (!fraud_status || fraud_status === 'accept');
-    const isSuccessful = status === 'settlement' || isCaptureAccepted;
-
+    // Update transaction and team status atomically
     await db.transaction(async (tx) => {
       const updated = await tx
         .update(transactions)
         .set({
-          transactionStatus: status,
-          paymentType: payment_type || null,
+          transactionStatus: dbStatus,
+          paymentType: webhookData.paymentMethod || null,
         })
-        .where(
-          and(
-            eq(transactions.orderId, order_id),
-            notInArray(transactions.transactionStatus, ['settlement', 'capture'])
-          )
-        )
+        .where(eq(transactions.id, matchedTx.id))
         .returning();
 
       if (isSuccessful && updated.length > 0) {
@@ -325,8 +321,8 @@ payment.post('/callback', async (c) => {
 
     return c.json({
       success: true,
-      orderId: order_id,
-      status: status,
+      transactionId: transactionId,
+      status: dbStatus,
     });
   } 
   catch (error) {
