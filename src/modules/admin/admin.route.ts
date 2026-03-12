@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, sql, desc, ne, isNotNull } from 'drizzle-orm';
+import { eq, sql, desc, ne, isNotNull, inArray } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
 import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events, eventRegistrationLogs, committeeAccounts, transactions } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
@@ -607,44 +607,55 @@ admin.get(
         .from(teamAccounts)
         .innerJoin(competitions, eq(teamAccounts.competitionId, competitions.id));
 
-      // For each team, fetch their payment and document verification status
-      const teamsWithStatus = await Promise.all(
-        teams.map(async (team) => {
-          // Get latest transaction for this team
-          const [latestTransaction] = await db
+      const teamIds = teams.map((t) => t.id);
+
+      const allTransactions = teamIds.length > 0
+        ? await db
             .select({
+              teamId: transactions.teamId,
               verificationStatus: transactions.verificationStatus,
               amount: transactions.amount,
               createdAt: transactions.createdAt,
             })
             .from(transactions)
-            .where(eq(transactions.teamId, team.id))
+            .where(inArray(transactions.teamId, teamIds))
             .orderBy(desc(transactions.createdAt))
-            .limit(1);
+        : [];
 
-          // Get document verification status
-          const [docVerification] = await db
+      const txMap = new Map<string, (typeof allTransactions)[0]>();
+      for (const tx of allTransactions) {
+        if (!txMap.has(tx.teamId)) txMap.set(tx.teamId, tx);
+      }
+
+      const allDocs = teamIds.length > 0
+        ? await db
             .select({
+              teamId: teamAdministration.teamId,
               verificationStatus: teamAdministration.verificationStatus,
             })
             .from(teamAdministration)
-            .where(eq(teamAdministration.teamId, team.id))
-            .limit(1);
+            .where(inArray(teamAdministration.teamId, teamIds))
+        : [];
 
-          const paymentStatus = latestTransaction?.verificationStatus ?? 'None';
-          const documentVerificationStatus = docVerification?.verificationStatus ?? 'Pending';
+      const docMap = new Map<string, (typeof allDocs)[0]>();
+      for (const doc of allDocs) {
+        if (!docMap.has(doc.teamId)) docMap.set(doc.teamId, doc);
+      }
 
-          return {
-            ...team,
-            status: {
-              paymentStatus,
-              documentVerificationStatus,
-              paymentAmount: latestTransaction?.amount ?? null,
-              paymentVerifiedAt: latestTransaction?.createdAt ?? null,
-            },
-          };
-        }),
-      );
+      const teamsWithStatus = teams.map((team) => {
+        const latestTransaction = txMap.get(team.id);
+        const docVerification = docMap.get(team.id);
+
+        return {
+          ...team,
+          status: {
+            paymentStatus: latestTransaction?.verificationStatus ?? 'None',
+            documentVerificationStatus: docVerification?.verificationStatus ?? 'Pending',
+            paymentAmount: latestTransaction?.amount ?? null,
+            paymentVerifiedAt: latestTransaction?.createdAt ?? null,
+          },
+        };
+      });
 
       const duration = Date.now() - startTime;
       logInfo(
@@ -674,7 +685,7 @@ admin.get(
   },
 );
 
-admin.route('/export', exportRouter);
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/config
@@ -686,7 +697,7 @@ const configSchema = z.object({
   value: z.enum(['true', 'false']),
 });
 
-admin.patch('/config', async (c) => {
+admin.patch('/config', committeeMiddleware({ roles: ['Admin'] }), async (c) => {
   const body = await c.req.json();
   const parsed = configSchema.safeParse(body);
 
@@ -717,7 +728,7 @@ const contentSchema = z.object({
   content: z.string().min(1, 'content cannot be empty'),
 });
 
-admin.put('/content/:section', async (c) => {
+admin.put('/content/:section', committeeMiddleware({ roles: ['Admin'] }), async (c) => {
   const section = c.req.param('section');
   const body = await c.req.json();
   const parsed = contentSchema.safeParse(body);
