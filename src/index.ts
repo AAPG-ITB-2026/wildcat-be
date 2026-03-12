@@ -35,10 +35,8 @@ app.use('*', cors({
     credentials: true,
 }));
 
-// 3. Auth (Hanya pasang 1 kali saja di sini)
-app.use('/api/landing/*', authMiddleware);
-app.use('/api/admin/*', authMiddleware);
-app.use('/api/admin/*', adminMiddleware); // Admin middleware dieksekusi setelah authMiddleware
+// 3. Auth
+app.use('/api/admin/*', adminMiddleware);
 app.use('/api/upload/*', authMiddleware);
 app.use('/api/submissions/*', authMiddleware);
 app.use('/api/transactions/*', authMiddleware);
@@ -64,14 +62,6 @@ console.log('  - /api/assets/*');
 console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
 console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
 console.log('  - /api/transactions/* (POST /request-url, POST /submit-proof)');
-
-console.log('[app.init] Routes registered:');
-console.log('  - /api/landing/*');
-console.log('  - /api/admin/*');
-console.log('  - /api/announcements/*');
-console.log('  - /api/assets/*');
-console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
-console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
 
 // 6. Start Server
 export default app;

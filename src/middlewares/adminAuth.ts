@@ -10,7 +10,7 @@ export const adminMiddleware = async (c: Context<{ Bindings: Env; Variables: Var
 
     // Verify the user exists in the committee table
     const [committee] = await db
-        .select({ role: committeeAccounts.role })
+        .select({ role: committeeAccounts.role, isActive: committeeAccounts.isActive })
         .from(committeeAccounts)
         .where(eq(committeeAccounts.id, user.id))
         .limit(1);
@@ -22,8 +22,8 @@ export const adminMiddleware = async (c: Context<{ Bindings: Env; Variables: Var
         foundInTable: !!committee,
     });
 
-    if (!committee) {
-        return c.json({ error: 'Forbidden: Requires committee access' }, 403);
+    if (!committee || !committee.isActive) {
+        return c.json({ error: 'Forbidden: Requires active committee access' }, 403);
     }
 
     await next();
