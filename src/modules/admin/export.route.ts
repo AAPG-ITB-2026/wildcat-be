@@ -24,7 +24,8 @@ const exportRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 //   
 //   Sheet 1 - Competitions Recap:
 //     - Team count per competition
-//     - Grand total of all registered teams
+//     - Participant count per competition (lead + members)
+//     - Grand totals for both teams and participants
 //     - Formatted with headers and footer summary row
 //   
 //   Sheet 2 - Events Recap:
@@ -47,11 +48,11 @@ const exportRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 //
 // Example File Structure:
 //   Sheet 1 (Competitions Recap):
-//     | Competition Name              | Registered Count |
-//     |-------------------------------|------------------|
-//     | Paper and Poster...           | 45               |
-//     | Business Case Competition     | 38               |
-//     | GRAND TOTAL                   | 83               |
+//     | Competition Name              | Team Count | Participant Count |
+//     |-------------------------------|------------|--------------------|
+//     | Paper and Poster...           | 45         | 98                 |
+//     | Business Case Competition     | 38         | 87                 |
+//     | GRAND TOTAL                   | 83         | 185                |
 //
 //   Sheet 2 (Events Recap):
 //     | Event Name         | Registered Count | Attended Count |
@@ -72,15 +73,49 @@ exportRouter.get(
     try {
       const db = createDb(c.env);
 
-    const competitionRows = await db
+    // Fetch all teams with member info to calculate participants
+    const allTeams = await db
       .select({
+        competitionId: teamAccounts.competitionId,
         competitionName: competitions.name,
-        teamCount: sql<number>`cast(count(${teamAccounts.id}) as integer)`,
+        leadName: teamAccounts.leadName,
+        m1Name: teamAccounts.m1Name,
+        m2Name: teamAccounts.m2Name,
       })
       .from(teamAccounts)
       .rightJoin(competitions, eq(teamAccounts.competitionId, competitions.id))
-      .groupBy(competitions.id, competitions.name)
       .orderBy(competitions.name);
+
+    // Group by competition and calculate team & participant counts
+    const competitionMap = new Map<string, {
+      competitionName: string;
+      teamCount: number;
+      participantCount: number;
+    }>();
+
+    for (const team of allTeams) {
+      if (!team.competitionId) continue; // Skip if no team in this competition
+
+      const key = team.competitionId;
+      if (!competitionMap.has(key)) {
+        competitionMap.set(key, {
+          competitionName: team.competitionName,
+          teamCount: 0,
+          participantCount: 0,
+        });
+      }
+
+      const entry = competitionMap.get(key)!;
+      entry.teamCount += 1;
+      
+      // Count participants: 1 (lead) + m1 (if exists) + m2 (if exists)
+      let participantCount = 1; // Always has lead
+      if (team.m1Name) participantCount += 1;
+      if (team.m2Name) participantCount += 1;
+      entry.participantCount += participantCount;
+    }
+
+    const competitionRows = Array.from(competitionMap.values());
 
     const eventRows = await db
       .select({
@@ -154,7 +189,8 @@ exportRouter.get(
     const sheet1 = workbook.addWorksheet('Competitions Recap');
     sheet1.columns = [
       { header: 'Competition Name', key: 'competitionName', width: 35 },
-      { header: 'Registered Count', key: 'teamCount', width: 20 },
+      { header: 'Team Count', key: 'teamCount', width: 18 },
+      { header: 'Participant Count', key: 'participantCount', width: 20 },
     ];
     sheet1.getRow(1).commit();
     styleHeader(sheet1.getRow(1));
@@ -163,20 +199,28 @@ exportRouter.get(
       const dataRow = sheet1.addRow({
         competitionName: row.competitionName,
         teamCount: row.teamCount ?? 0,
+        participantCount: row.participantCount ?? 0,
       });
       dataRow.getCell('teamCount').alignment = { horizontal: 'center' };
+      dataRow.getCell('participantCount').alignment = { horizontal: 'center' };
     }
 
-    const grandTotalCompetitions = competitionRows.reduce(
+    const grandTotalTeams = competitionRows.reduce(
       (acc, r) => acc + (r.teamCount ?? 0),
+      0,
+    );
+    const grandTotalParticipants = competitionRows.reduce(
+      (acc, r) => acc + (r.participantCount ?? 0),
       0,
     );
     const footerRow1 = sheet1.addRow({
       competitionName: 'GRAND TOTAL',
-      teamCount: grandTotalCompetitions,
+      teamCount: grandTotalTeams,
+      participantCount: grandTotalParticipants,
     });
     styleFooter(footerRow1);
     footerRow1.getCell('teamCount').alignment = { horizontal: 'center' };
+    footerRow1.getCell('participantCount').alignment = { horizontal: 'center' };
 
     // ════════════════════════════════════════════════════════════════════════
     // Sheet 2: Events Recap

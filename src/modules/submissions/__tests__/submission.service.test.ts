@@ -73,9 +73,18 @@ describe('sanitizeFileName', () => {
 });
 
 describe('buildSubmissionPath', () => {
-    it('should produce a path in the format: submissions/{teamId}/{reqId}/{timestamp}_{fileName}', () => {
+    it('should produce a static path in the format: submissions/{teamId}/{reqId}.{ext}', () => {
         const path = buildSubmissionPath('team-1', 'req-1', 'Paper.pdf');
-        expect(path).toMatch(/^submissions\/team-1\/req-1\/\d+_paper\.pdf$/);
+        expect(path).toBe('submissions/team-1/req-1.pdf');
+    });
+
+    it('should handle different file extensions', () => {
+        expect(buildSubmissionPath('team-1', 'req-1', 'Document.docx')).toBe('submissions/team-1/req-1.docx');
+        expect(buildSubmissionPath('team-1', 'req-1', 'image.PNG')).toBe('submissions/team-1/req-1.png');
+    });
+
+    it('should handle files without extension', () => {
+        expect(buildSubmissionPath('team-1', 'req-1', 'noext')).toBe('submissions/team-1/req-1');
     });
 });
 

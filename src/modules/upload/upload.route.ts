@@ -165,6 +165,8 @@ const ERROR_STATUS_MAP: Record<string, number> = {
     INVALID_CONTENT_TYPE: 422,
     INVALID_FILE_PATH: 400,
     DB_WRITE_FAILED: 500,
+    INCOMPLETE_TEAM_INFO: 400,
+    INCOMPLETE_DOCUMENTS: 422,
 };
 
 function handleServiceError(c: Context<{ Bindings: Env; Variables: { user: { id: string } } }>, error: unknown) {

@@ -49,7 +49,7 @@ describe('requestUrlSchema', () => {
 
 describe('saveSubmissionSchema', () => {
     const validBody = {
-        file_path: 'submissions/team-1/req-1/123_paper.pdf',
+        file_path: 'submissions/team-1/req-1.pdf',
         requirement_id: '550e8400-e29b-41d4-a716-446655440000',
     };
 

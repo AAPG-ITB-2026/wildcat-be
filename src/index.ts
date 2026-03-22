@@ -8,11 +8,14 @@ import upload from './modules/upload/upload.route.js';
 import assets from './modules/assets/assets.route.js';
 import submissions from './modules/submissions/submission.route.js';
 import transactionsRoute from './modules/transactions/transaction.route.js';
+import webhooks from './modules/webhooks/webhooks.route.js';
 import { authMiddleware } from './middlewares/auth.js';
 import type { Env, Variables } from './types/index.js';
 import { adminMiddleware } from './middlewares/adminAuth.js';
 import { announcementRoutes } from './modules/announcements/announcements.route.js';
 import { logger } from './middlewares/logger.js';
+import { cleanupExpiredTransactions } from './lib/transaction-cleanup.js';
+import type { ScheduledEvent, ExecutionContext, ExportedHandler } from '@cloudflare/workers-types';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -27,13 +30,17 @@ app.use('/api/payment/status', authMiddleware);
 app.use('*', logger);
 
 // 2. CORS (WAJIB di atas Auth Middleware agar Preflight OPTIONS lolos)
-app.use('*', cors({
-    origin: '*', // TODO: Restrict to frontend domain(s) nanti saat production
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'], // Tambahkan OPTIONS dan PATCH
-    allowHeaders: ['Content-Type', 'Authorization'], // Wajib ada agar frontend bisa kirim Token
+// Middleware to handle CORS with environment-specific origins
+app.use('*', async (c, next) => {
+  const frontendUrl = c.env.FRONTEND_URL;
+  return cors({
+    origin: frontendUrl || 'http://localhost:3000', // Use FRONTEND_URL from env, fallback to localhost
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['Content-Length'],
     credentials: true,
-}));
+  })(c, next);
+});
 
 // 3. Auth
 app.use('/api/admin/*', adminMiddleware);
@@ -53,6 +60,7 @@ app.route('/api/assets', assets);
 app.route('/api/upload', upload);
 app.route('/api/submissions', submissions);
 app.route('/api/transactions', transactionsRoute);
+app.route('/api/webhooks', webhooks);
 
 console.log('[app.init] Routes registered:');
 console.log('  - /api/landing/*');
@@ -62,6 +70,24 @@ console.log('  - /api/assets/*');
 console.log('  - /api/upload/* (POST /sign, POST /confirm, GET /:teamId/:documentType)');
 console.log('  - /api/submissions/* (POST /request-url, POST /, GET /:requirementId)');
 console.log('  - /api/transactions/* (POST /request-url, POST /submit-proof)');
+console.log('  - /api/webhooks/* (POST /events/:id/register)');
 
-// 6. Start Server
-export default app;
+// 6. Scheduled Handler for transaction cleanup
+const handleScheduled = async (event: ScheduledEvent, env: Env): Promise<void> => {
+  try {
+    const deletedCount = await cleanupExpiredTransactions(env, 10);
+    console.log(`[cron] Transaction cleanup completed. Deleted ${deletedCount} expired transactions.`);
+  } catch (error) {
+    console.error('[cron] Transaction cleanup failed:', error);
+  }
+};
+
+// 7. Unified handler that supports both HTTP and Scheduled events
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return app.fetch(request, env, ctx);
+  },
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    return handleScheduled(event, env);
+  },
+} as any;
