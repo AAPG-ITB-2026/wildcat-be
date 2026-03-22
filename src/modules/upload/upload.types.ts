@@ -52,7 +52,13 @@ export interface AdministrationRepository {
 }
 
 export interface TeamRepository {
-    findById(id: string): Promise<{ id: string } | null>;
+    findById(id: string): Promise<{
+        id: string;
+        m1Name: string | null;
+        m2Name: string | null;
+        phoneNumber: string;
+        lineId: string;
+    } | null>;
 }
 
 export interface UploadServiceDeps {

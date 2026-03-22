@@ -9,6 +9,11 @@ export type Env = {
     // Mayar Payment Gateway
     MAYAR_API_KEY: string;
     MAYAR_MERCHANT_ID: string;
+    MAYAR_WEBHOOK_SECRET: string;
+    // Event Registration Webhook
+    WEBHOOK_SECRET: string;
+    // Frontend Configuration
+    FRONTEND_URL: string;
     // Legacy Midtrans (for backwards compatibility during migration)
     MIDTRANS_SERVER_KEY?: string;  
     HYPERDRIVE: Hyperdrive;
@@ -21,8 +26,6 @@ export type Env = {
     R2_BUCKET_NAME: string;
     R2_PUBLIC_URL: string;
     PUBLIC_ASSET_URL: string;
-
-    DATABASE_URL: string;
 };
 
 export type Variables = {

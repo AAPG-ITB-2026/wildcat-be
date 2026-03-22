@@ -267,8 +267,19 @@ export function buildSubmissionPath(
     requirementId: string,
     filename: string,
 ): string {
-    const sanitized = sanitizeFileName(filename);
-    return `submissions/${teamId}/${requirementId}/${sanitized}`;
+    // Extract file extension from the original filename
+    const extension = getFileExtension(filename);
+    
+    // Static naming: submissions/{teamId}/{requirementId}.{ext}
+    return `submissions/${teamId}/${requirementId}${extension}`;
+}
+
+export function getFileExtension(filename: string): string {
+    const lastDotIndex = filename.lastIndexOf('.');
+    if (lastDotIndex === -1 || lastDotIndex === 0) {
+        return ''; // No extension
+    }
+    return filename.substring(lastDotIndex).toLowerCase();
 }
 
 export function sanitizeFileName(fileName: string): string {
@@ -289,20 +300,32 @@ function validateSubmittedStoragePath(teamId: string, requirementId: string, fil
         ? filePath.substring('wildcat2026/'.length)
         : filePath;
 
-    // Validate path structure: submissions/{teamId}/{requirementId}/{filename}
+    // Validate path structure: submissions/{teamId}/{requirementId}.{ext}
     const pathParts = cleanPath.split('/');
-    if (pathParts.length < 4 || pathParts[0] !== 'submissions') {
+    if (pathParts.length !== 3 || pathParts[0] !== 'submissions') {
         throw new SubmissionError(
             'INVALID_STORAGE_PATH',
-            'file_path must follow structure: submissions/{teamId}/{requirementId}/{filename}',
+            'file_path must follow structure: submissions/{teamId}/{requirementId}.{ext}',
         );
     }
 
-    const [, pathTeamId, pathRequirementId] = pathParts;
-    if (pathTeamId !== teamId || pathRequirementId !== requirementId) {
+    const [, pathTeamId, fileWithExt] = pathParts;
+    
+    if (pathTeamId !== teamId) {
         throw new SubmissionError(
             'INVALID_STORAGE_PATH',
-            `file_path teamId/requirementId must match request (expected ${teamId}/${requirementId}, got ${pathTeamId}/${pathRequirementId})`,
+            `file_path teamId must match request (expected ${teamId}, got ${pathTeamId})`,
+        );
+    }
+
+    // Extract requirementId from the file part (e.g., "abc123.pdf" -> "abc123")
+    const lastDotIndex = fileWithExt.lastIndexOf('.');
+    const pathRequirementId = lastDotIndex > 0 ? fileWithExt.substring(0, lastDotIndex) : fileWithExt;
+    
+    if (pathRequirementId !== requirementId) {
+        throw new SubmissionError(
+            'INVALID_STORAGE_PATH',
+            `file_path requirementId must match request (expected ${requirementId}, got ${pathRequirementId})`,
         );
     }
 
