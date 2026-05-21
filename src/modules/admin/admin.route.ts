@@ -5,6 +5,7 @@ import { createDb } from '../../db/index.js';
 import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, competitionStages, events, eventRegistrationLogs, committeeAccounts, transactions } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
 import { getStorage } from '../../lib/r2.js';
+import { withConcurrencyLimit } from '../../lib/concurrency.js';
 import { listAllSubmissions } from '../submissions/submission.service.js';
 import { createDrizzleGatekeepingRepo } from '../submissions/adapters/drizzle-gatekeeping.adapter.js';
 import { createDrizzleSubmissionRepo } from '../submissions/adapters/drizzle-submission.adapter.js';
@@ -1456,9 +1457,9 @@ admin.get(
         .where(isNotNull(transactions.paymentProofUrl)) // Only manual payments with proof
         .orderBy(desc(transactions.createdAt));
 
-      // Generate signed URLs for each transaction
-      const transactionsWithUrls = await Promise.all(
-        allTransactions.map(async (txn) => {
+      // Generate signed URLs for each transaction with concurrency limit
+      const urlTasks = allTransactions.map(
+        (txn) => async () => {
           let signedUrl: string | null = null;
           if (txn.paymentProofUrl) {
             try {
@@ -1492,8 +1493,10 @@ admin.get(
             verifiedBy: txn.verifiedBy,
             createdAt: txn.createdAt,
           };
-        }),
+        }
       );
+
+      const transactionsWithUrls = await withConcurrencyLimit(urlTasks, 5);
 
       // Group by verification status
       const byStatus: Record<string, typeof transactionsWithUrls> = {
@@ -1985,10 +1988,10 @@ admin.get(
         `Found ${administrations.length} teams to process`,
       );
 
-      // Transform to include signed URLs and document metadata
+      // Transform to include signed URLs and document metadata with concurrency limit
       console.log('[admin.documents.teams] Processing document URLs for each team...');
-      const teams = await Promise.all(
-        administrations.map(async (admin) => {
+      const teamTasks = administrations.map(
+        (admin) => async () => {
           console.log(`[admin.documents.teams] Processing team: ${admin.teamName} (${admin.teamId})`);
           
           // Helper to create signed URL if document exists
@@ -2061,8 +2064,10 @@ admin.get(
             verifiedBy: admin.verifiedBy,
             rejectionNotes: admin.rejectionNotes,
           };
-        }),
+        }
       );
+
+      const teams = await withConcurrencyLimit(teamTasks, 5);
 
       console.log('[admin.documents.teams] ✅ All teams processed');
       console.log('[admin.documents.teams] Response summary:', {
@@ -2550,7 +2555,60 @@ admin.get(
         teams: createDrizzleSubmissionTeamRepo(db),
       };
 
-      // Group teams by competition
+      // Group teams by stage to batch-fetch requirements (CRITICAL OPTIMIZATION)
+      const stageTeamsMap = new Map<
+        string,
+        {
+          stageId: string;
+          teams: typeof allTeams;
+        }
+      >();
+
+      for (const team of allTeams) {
+        if (!team.currentStageId) continue;
+        const key = team.currentStageId;
+        if (!stageTeamsMap.has(key)) {
+          stageTeamsMap.set(key, {
+            stageId: team.currentStageId,
+            teams: [],
+          });
+        }
+        stageTeamsMap.get(key)!.teams.push(team);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Grouped teams into ${stageTeamsMap.size} stages for batch processing`,
+      );
+
+      // Pre-fetch all requirements for each stage (HUGE optimization: fetch once per stage, not once per team!)
+      const stageRequirementsMap = new Map<string, Awaited<ReturnType<typeof deps.submissions.getStageRequirementsList>>>();
+      for (const [stageId, stageData] of stageTeamsMap.entries()) {
+        const requirements = await deps.submissions.getStageRequirementsList(stageId);
+        stageRequirementsMap.set(stageId, requirements);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Pre-fetched requirements for all stages`,
+      );
+
+      // Fetch all submissions for all teams in this stage in ONE batch query (CRITICAL OPTIMIZATION)
+      const allTeamIds = Array.from(stageTeamsMap.values()).flatMap((s) => s.teams.map((t) => t.teamId));
+      const allSubmissionsByTeamMap = new Map<string, Awaited<ReturnType<typeof deps.submissions.getAllTeamSubmissionsBatch>>>();
+      
+      for (const [stageId, stageData] of stageTeamsMap.entries()) {
+        const teamIds = stageData.teams.map((t) => t.teamId);
+        const submissionMap = await deps.submissions.getAllTeamSubmissionsBatch(teamIds, stageId);
+        allSubmissionsByTeamMap.set(stageId, submissionMap);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Pre-fetched all submissions in ${stageTeamsMap.size} batch queries`,
+      );
+
+      // Group teams by competition and build responses from pre-fetched data (NO MORE DB QUERIES!)
       const competitionMap = new Map<
         string,
         {
@@ -2561,6 +2619,7 @@ admin.get(
       >();
 
       for (const team of allTeams) {
+        if (!team.currentStageId) continue;
         const key = team.competitionId;
         if (!competitionMap.has(key)) {
           competitionMap.set(key, {
@@ -2572,40 +2631,55 @@ admin.get(
         competitionMap.get(key)!.teams.push(team);
       }
 
-      // Fetch submissions for all teams in parallel
-      const result = await Promise.all(
-        Array.from(competitionMap.values()).map(async (competition) => {
-          const teamsWithSubmissions = await Promise.all(
-            competition.teams.map(async (team) => {
-              try {
-                const submissions = await listAllSubmissions(team.teamId, deps);
-                return {
-                  teamId: team.teamId,
-                  teamName: team.teamName,
-                  institution: team.institution,
-                  ...submissions,
-                };
-              } catch (error) {
-                // Skip teams with errors (e.g., no stage assigned)
-                logInfo(
-                  'admin.submissions.all',
-                  `Skipped team ${team.teamId}: ${error instanceof Error ? error.message : String(error)}`,
-                );
-                return null;
-              }
-            }),
-          );
+      // Build result from cached data (NO CONCURRENT QUERIES, just data transformation)
+      const result = Array.from(competitionMap.values()).map((competition) => {
+        const teamsWithSubmissions = competition.teams
+          .map((team) => {
+            if (!team.currentStageId) return null;
 
-          return {
-            competitionId: competition.competitionId,
-            competitionName: competition.competitionName,
-            totalTeams: teamsWithSubmissions.filter((t) => t !== null).length,
-            teams: teamsWithSubmissions.filter(
-              (t): t is NonNullable<typeof teamsWithSubmissions[0]> => t !== null,
-            ),
-          };
-        }),
-      );
+            const requirements = stageRequirementsMap.get(team.currentStageId);
+            const submissionsByTeam = allSubmissionsByTeamMap.get(team.currentStageId);
+            
+            if (!requirements || !submissionsByTeam) return null;
+
+            const teamSubmissions = submissionsByTeam.get(team.teamId) || [];
+            const submissionMap = new Map(teamSubmissions.map((s) => [s.requirementId, s]));
+
+            const submissionStatuses = requirements.map((req) => {
+              const submission = submissionMap.get(req.id);
+              return {
+                requirementId: req.id,
+                documentName: req.documentName,
+                submitted: !!submission,
+                isValid: submission?.isValid ?? false,
+                submittedAt: submission?.submittedAt ?? null,
+                fileUrl: submission?.fileUrl ?? null,
+              };
+            });
+
+            const submittedCount = submissionStatuses.filter((s) => s.submitted).length;
+            const completionPercentage =
+              requirements.length > 0 ? Math.round((submittedCount / requirements.length) * 100) : 0;
+
+            return {
+              teamId: team.teamId,
+              teamName: team.teamName,
+              institution: team.institution,
+              submissions: submissionStatuses,
+              totalRequirements: requirements.length,
+              submittedCount,
+              completionPercentage,
+            };
+          })
+          .filter((t): t is NonNullable<typeof t> => t !== null);
+
+        return {
+          competitionId: competition.competitionId,
+          competitionName: competition.competitionName,
+          totalTeams: teamsWithSubmissions.length,
+          teams: teamsWithSubmissions,
+        };
+      });
 
       const duration = Date.now() - startTime;
       logInfo(

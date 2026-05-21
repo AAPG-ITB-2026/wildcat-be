@@ -32,13 +32,15 @@ export async function cleanupExpiredTransactions(
       { cutoffTime: cutoffTime.toISOString() }
     );
 
-    // Find and delete all pending transactions that are older than the cutoff time
+    // Find and delete all pending Mayar transactions that are older than the cutoff time
+    // Note: Manual payments are excluded from cleanup to preserve user-submitted proofs
     const expiredTransactions = await db
       .select({ id: transactions.id, teamId: transactions.teamId, orderId: transactions.orderId })
       .from(transactions)
       .where(
         and(
           eq(transactions.verificationStatus, 'Pending'),
+          eq(transactions.paymentType, 'Mayar ID'),
           lt(transactions.createdAt, cutoffTime)
         )
       );

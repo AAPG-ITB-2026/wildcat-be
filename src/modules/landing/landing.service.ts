@@ -305,6 +305,7 @@ export async function getTeamData(
   m1Major: string | null;
   m2Name: string | null;
   m2Major: string | null;
+  currentStageId: string | null;
 } | null> {
   const [team] = await db
     .select()
@@ -329,5 +330,6 @@ export async function getTeamData(
     m1Major: team.m1Major,
     m2Name: team.m2Name,
     m2Major: team.m2Major,
+    currentStageId: team.currentStageId,
   };
 }
