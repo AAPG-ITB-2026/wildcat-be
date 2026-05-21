@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { stageRequirements, submissions, competitionStages } from '../../../db/schema.js';
 import type { SubmissionRepository, StageRequirement, SubmissionRecord } from '../submission.types.js';
@@ -15,8 +15,11 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
                     documentName: stageRequirements.documentName,
                     allowedExtensions: stageRequirements.allowedExtensions,
                     maxSizeMb: stageRequirements.maxSizeMb,
+                    startDate: competitionStages.startDate,
+                    endDate: competitionStages.endDate,
                 })
                 .from(stageRequirements)
+                .innerJoin(competitionStages, eq(stageRequirements.stageId, competitionStages.id))
                 .where(eq(stageRequirements.id, requirementId))
                 .limit(1);
 
@@ -130,11 +133,53 @@ export function createDrizzleSubmissionRepo(db: PostgresJsDatabase): SubmissionR
                     documentName: stageRequirements.documentName,
                     allowedExtensions: stageRequirements.allowedExtensions,
                     maxSizeMb: stageRequirements.maxSizeMb,
+                    startDate: competitionStages.startDate,
+                    endDate: competitionStages.endDate,
                 })
                 .from(stageRequirements)
+                .innerJoin(competitionStages, eq(stageRequirements.stageId, competitionStages.id))
                 .where(eq(stageRequirements.stageId, stageId));
 
             return rows;
+        },
+
+        async getAllTeamSubmissionsBatch(
+            teamIds: string[],
+            stageId: string
+        ): Promise<Map<string, Array<SubmissionRecord & { documentName: string; requirementId: string }>>> {
+            if (teamIds.length === 0) {
+                return new Map();
+            }
+
+            const rows = await db
+                .select({
+                    id: submissions.id,
+                    teamId: submissions.teamId,
+                    requirementId: submissions.requirementId,
+                    fileUrl: submissions.fileUrl,
+                    isValid: submissions.isValid,
+                    submittedAt: submissions.submittedAt,
+                    documentName: stageRequirements.documentName,
+                })
+                .from(submissions)
+                .innerJoin(stageRequirements, eq(submissions.requirementId, stageRequirements.id))
+                .where(
+                    and(
+                        inArray(submissions.teamId, teamIds),
+                        eq(stageRequirements.stageId, stageId)
+                    )
+                );
+
+            // Group results by teamId
+            const map = new Map<string, Array<SubmissionRecord & { documentName: string; requirementId: string }>>();
+            for (const row of rows) {
+                if (!map.has(row.teamId)) {
+                    map.set(row.teamId, []);
+                }
+                map.get(row.teamId)!.push(row);
+            }
+
+            return map;
         },
     };
 }

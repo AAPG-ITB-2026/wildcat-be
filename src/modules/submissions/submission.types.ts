@@ -13,6 +13,8 @@ export interface StageRequirement {
     documentName: string;
     allowedExtensions: string;
     maxSizeMb: number;
+    startDate: Date;
+    endDate: Date;
 }
 
 export interface SubmissionRecord {
@@ -39,6 +41,8 @@ export interface SubmissionRepository {
     ): Promise<SubmissionRecord | null>;
 
     getAllTeamSubmissions(teamId: string, stageId: string): Promise<Array<SubmissionRecord & { documentName: string; requirementId: string }>>;
+
+    getAllTeamSubmissionsBatch(teamIds: string[], stageId: string): Promise<Map<string, Array<SubmissionRecord & { documentName: string; requirementId: string }>>>;
 
     getStageRequirementsList(stageId: string): Promise<StageRequirement[]>;
 }
