@@ -16,6 +16,14 @@ export async function generateSignedUploadUrl(
         throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
     }
 
+    // Validate that team has filled phoneNumber and lineId
+    if (!team.phoneNumber || !team.lineId) {
+        throw new UploadError(
+            'INCOMPLETE_TEAM_INFO',
+            'Please fill in your phone number and LINE ID in your profile before uploading documents',
+        );
+    }
+
     const storagePath = buildStoragePath(teamId, documentType, fileName);
 
     const { data, error } = await storage.createSignedUploadUrl(storagePath, {
@@ -45,6 +53,30 @@ export async function confirmDocumentUpload(
     const team = await teams.findById(teamId);
     if (!team) {
         throw new UploadError('TEAM_NOT_FOUND', `Team ${teamId} does not exist`);
+    }
+
+    // Validate that team has filled phoneNumber and lineId
+    if (!team.phoneNumber || !team.lineId) {
+        throw new UploadError(
+            'INCOMPLETE_TEAM_INFO',
+            'Please fill in your phone number and LINE ID in your profile before uploading documents',
+        );
+    }
+
+    // Validate that the document type matches existing team members
+    // Only allow m1_ktm if team has m1Name, and m2_ktm if team has m2Name
+    if (documentType === 'm1_ktm' && !team.m1Name) {
+        throw new UploadError(
+            'INVALID_MEMBER',
+            `Cannot upload m1_ktm: Team does not have a second member (m1)`,
+        );
+    }
+
+    if (documentType === 'm2_ktm' && !team.m2Name) {
+        throw new UploadError(
+            'INVALID_MEMBER',
+            `Cannot upload m2_ktm: Team does not have a third member (m2)`,
+        );
     }
 
     // Ensure the file path matches the expected team/documentType prefix
@@ -88,10 +120,11 @@ export async function confirmDocumentUpload(
     const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
     if (fileMeta.contentLength > MAX_SIZE_BYTES) {
         throw new UploadError(
-            'INVALID_FILE_SIZE' as unknown as any,
+            'INVALID_FILE_SIZE',
             `File is too large: ${(fileMeta.contentLength / 1024 / 1024).toFixed(2)}MB. Max allowed is 5MB.`
         );
     }
+
     const record = await administration.upsertField(teamId, documentType, filePath);
     return { administration: record };
 }

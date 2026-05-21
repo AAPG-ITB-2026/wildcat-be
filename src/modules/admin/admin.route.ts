@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { eq, sql, desc, ne, isNotNull } from 'drizzle-orm';
+import { eq, sql, desc, ne, isNotNull, inArray } from 'drizzle-orm';
 import { createDb } from '../../db/index.js';
-import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, events, eventRegistrationLogs, committeeAccounts, transactions } from '../../db/schema.js';
+import { appConfig, appContent, announcements, teamAdministration, teamAccounts, competitions, competitionStages, events, eventRegistrationLogs, committeeAccounts, transactions } from '../../db/schema.js';
 import { committeeMiddleware } from '../../middlewares/auth.js';
 import { getStorage } from '../../lib/r2.js';
+import { withConcurrencyLimit } from '../../lib/concurrency.js';
 import { listAllSubmissions } from '../submissions/submission.service.js';
 import { createDrizzleGatekeepingRepo } from '../submissions/adapters/drizzle-gatekeeping.adapter.js';
 import { createDrizzleSubmissionRepo } from '../submissions/adapters/drizzle-submission.adapter.js';
@@ -156,11 +157,41 @@ admin.get(
 //   - 500: Database error
 // ─────────────────────────────────────────────────────────────────────────────
 const createCommitteeMemberSchema = z.object({
-  email: z.string().email('email must be a valid email address'),
-  name: z.string().min(1, 'name cannot be empty'),
-  role: z.enum(['Admin', 'Committee']),
-  division: z.string().min(1, 'division cannot be empty'),
-});
+  id: z.string().uuid('id must be a valid UUID').optional().nullable(),
+  email: z.string().optional().nullable(),
+  name: z.string().min(1, 'name cannot be empty').optional(),
+  role: z.enum(['Admin', 'Committee']).optional(),
+  division: z.string().min(1, 'division cannot be empty').optional(),
+}).transform((data) => {
+  // Convert null/empty values to undefined for easier checking
+  return {
+    id: data.id || undefined,
+    email: (data.email && data.email.trim()) || undefined,
+    name: data.name,
+    role: data.role,
+    division: data.division,
+  };
+}).refine(
+  (data) => {
+    // If id is provided, treat as update (only name/role/division needed)
+    if (data.id) {
+      return data.name !== undefined || data.role !== undefined || data.division !== undefined;
+    }
+    // If no id, treat as create (email + name + role + division required)
+    // Also validate email format if provided in create mode
+    if (data.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.email)) {
+        return false;
+      }
+    }
+    return data.email !== undefined && data.name !== undefined && data.role !== undefined && data.division !== undefined;
+  },
+  {
+    message: 'Either provide id with fields to update (name/role/division), or provide email, name, role, and division to create',
+    path: ['root'],
+  }
+);
 
 admin.post(
   '/committee',
@@ -168,19 +199,83 @@ admin.post(
   async (c) => {
     const startTime = Date.now();
     const body = await c.req.json();
+    logInfo('admin.committee.post', `Received request body: ${JSON.stringify(body)}`);
     const parsed = createCommitteeMemberSchema.safeParse(body);
 
     if (!parsed.success) {
+      logError('admin.committee.post', `Validation failed: ${JSON.stringify(parsed.error.flatten())}`);
       return c.json(
         { error: 'Invalid body', details: parsed.error.flatten() },
         400,
       );
     }
 
-    const { email, name, role, division } = parsed.data;
+    const { id, email, name, role, division } = parsed.data;
     const currentAdmin = c.get('committee');
     const db = createDb(c.env);
 
+    // Mode 1: Update existing committee member (id provided)
+    if (id) {
+      logInfo('admin.committee.update', `Updating committee member: ${id}`);
+
+      try {
+        const updateData: Record<string, unknown> = {};
+        if (name !== undefined) updateData.name = name;
+        if (role !== undefined) updateData.role = role;
+        if (division !== undefined) updateData.division = division;
+
+        const [result] = await db
+          .update(committeeAccounts)
+          .set(updateData)
+          .where(eq(committeeAccounts.id, id))
+          .returning({
+            id: committeeAccounts.id,
+            name: committeeAccounts.name,
+            role: committeeAccounts.role,
+            division: committeeAccounts.division,
+            isActive: committeeAccounts.isActive,
+          });
+
+        if (!result) {
+          logError('admin.committee.update', `Committee member not found: ${id}`);
+          return c.json(
+            { error: 'Committee member not found' },
+            404,
+          );
+        }
+
+        const duration = Date.now() - startTime;
+        logInfo(
+          'admin.committee.update',
+          `Successfully updated committee member ${id} (${duration}ms)`,
+        );
+
+        return c.json(
+          {
+            success: true,
+            message: 'Committee member updated successfully',
+            member: result,
+          },
+          200,
+        );
+      } catch (error) {
+        const duration = Date.now() - startTime;
+        logError(
+          'admin.committee.update',
+          `Error updating committee member (${duration}ms):`,
+          error,
+        );
+        return c.json(
+          {
+            error: 'Failed to update committee member',
+            details: String(error),
+          },
+          500,
+        );
+      }
+    }
+
+    // Mode 2: Create new committee member (email provided)
     logInfo('admin.committee.create', `Creating new committee member: ${email}`);
 
     try {
@@ -266,12 +361,12 @@ admin.post(
       const [result] = await db
         .insert(committeeAccounts)
         .values({
-          id: userId, // Use Supabase auth user ID
+          id: userId as any, // Use Supabase auth user ID
           name,
           role,
           division,
           isActive: true,
-        })
+        } as any)
         .returning({
           id: committeeAccounts.id,
           name: committeeAccounts.name,
@@ -423,6 +518,133 @@ admin.patch(
       );
       return c.json(
         { error: 'Failed to update committee member role', details: String(error) },
+        500,
+      );
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/admin/committee/:memberId
+// Update committee member details (name and division)
+// Security: Admin role ONLY
+//
+// Description:
+//   Updates a committee member's name and division. Email cannot be changed
+//   as it is the unique identifier in Supabase Auth.
+//
+// Body:
+//   {
+//     "name": "John Updated",    // optional
+//     "division": "Development"  // optional
+//   }
+//
+// Response:
+//   {
+//     "success": true,
+//     "message": "Committee member updated successfully",
+//     "member": {
+//       "id": "uuid",
+//       "name": "John Updated",
+//       "role": "Admin",
+//       "division": "Development",
+//       "isActive": true
+//     }
+//   }
+//
+// Path Params: memberId (UUID)
+// ─────────────────────────────────────────────────────────────────────────────
+const updateCommitteeDetailsSchema = z.object({
+  name: z.string().min(1, 'name cannot be empty').optional(),
+  division: z.string().min(1, 'division cannot be empty').optional(),
+});
+
+admin.patch(
+  '/committee/:memberId',
+  committeeMiddleware({ roles: ['Admin'] }),
+  async (c) => {
+    const startTime = Date.now();
+    const memberId = c.req.param('memberId');
+
+    logInfo('admin.committee.update', `Updating details for committee member ${memberId}`);
+
+    try {
+      const body = await c.req.json();
+      const parsed = updateCommitteeDetailsSchema.safeParse(body);
+
+      if (!parsed.success) {
+        logError(
+          'admin.committee.update',
+          `Invalid body for member ${memberId}:`,
+          parsed.error.flatten(),
+        );
+        return c.json(
+          {
+            error: 'Invalid body',
+            details: parsed.error.flatten(),
+          },
+          400,
+        );
+      }
+
+      const { name, division } = parsed.data;
+      const db = createDb(c.env);
+
+      // Verify committee member exists
+      const [memberExists] = await db
+        .select({ id: committeeAccounts.id })
+        .from(committeeAccounts)
+        .where(eq(committeeAccounts.id, memberId))
+        .limit(1);
+
+      if (!memberExists) {
+        logError('admin.committee.update', `Committee member not found: ${memberId}`);
+        return c.json({ error: 'Committee member not found' }, 404);
+      }
+
+      // Prepare update payload - only include fields that were provided
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (division !== undefined) updateData.division = division;
+
+      if (Object.keys(updateData).length === 0) {
+        return c.json(
+          {
+            error: 'No fields to update',
+            message: 'Please provide at least one field to update (name or division)',
+          },
+          400,
+        );
+      }
+
+      // Update the committee member
+      const [updated] = await db
+        .update(committeeAccounts)
+        .set(updateData)
+        .where(eq(committeeAccounts.id, memberId))
+        .returning({
+          id: committeeAccounts.id,
+          name: committeeAccounts.name,
+          role: committeeAccounts.role,
+          division: committeeAccounts.division,
+          isActive: committeeAccounts.isActive,
+        });
+
+      const duration = Date.now() - startTime;
+      logInfo(
+        'admin.committee.update',
+        `Successfully updated committee member ${memberId} (${duration}ms)`,
+      );
+
+      return c.json({
+        success: true,
+        message: 'Committee member updated successfully',
+        member: updated,
+      });
+    } catch (error) {
+      logError('admin.committee.update', `Failed to update committee member ${memberId}`, error);
+      return c.json(
+        { error: 'Failed to update committee member details', details: String(error) },
         500,
       );
     }
@@ -607,44 +829,55 @@ admin.get(
         .from(teamAccounts)
         .innerJoin(competitions, eq(teamAccounts.competitionId, competitions.id));
 
-      // For each team, fetch their payment and document verification status
-      const teamsWithStatus = await Promise.all(
-        teams.map(async (team) => {
-          // Get latest transaction for this team
-          const [latestTransaction] = await db
+      const teamIds = teams.map((t) => t.id);
+
+      const allTransactions = teamIds.length > 0
+        ? await db
             .select({
+              teamId: transactions.teamId,
               verificationStatus: transactions.verificationStatus,
               amount: transactions.amount,
               createdAt: transactions.createdAt,
             })
             .from(transactions)
-            .where(eq(transactions.teamId, team.id))
+            .where(inArray(transactions.teamId, teamIds))
             .orderBy(desc(transactions.createdAt))
-            .limit(1);
+        : [];
 
-          // Get document verification status
-          const [docVerification] = await db
+      const txMap = new Map<string, (typeof allTransactions)[0]>();
+      for (const tx of allTransactions) {
+        if (!txMap.has(tx.teamId)) txMap.set(tx.teamId, tx);
+      }
+
+      const allDocs = teamIds.length > 0
+        ? await db
             .select({
+              teamId: teamAdministration.teamId,
               verificationStatus: teamAdministration.verificationStatus,
             })
             .from(teamAdministration)
-            .where(eq(teamAdministration.teamId, team.id))
-            .limit(1);
+            .where(inArray(teamAdministration.teamId, teamIds))
+        : [];
 
-          const paymentStatus = latestTransaction?.verificationStatus ?? 'None';
-          const documentVerificationStatus = docVerification?.verificationStatus ?? 'Pending';
+      const docMap = new Map<string, (typeof allDocs)[0]>();
+      for (const doc of allDocs) {
+        if (!docMap.has(doc.teamId)) docMap.set(doc.teamId, doc);
+      }
 
-          return {
-            ...team,
-            status: {
-              paymentStatus,
-              documentVerificationStatus,
-              paymentAmount: latestTransaction?.amount ?? null,
-              paymentVerifiedAt: latestTransaction?.createdAt ?? null,
-            },
-          };
-        }),
-      );
+      const teamsWithStatus = teams.map((team) => {
+        const latestTransaction = txMap.get(team.id);
+        const docVerification = docMap.get(team.id);
+
+        return {
+          ...team,
+          status: {
+            paymentStatus: latestTransaction?.verificationStatus ?? 'None',
+            documentVerificationStatus: docVerification?.verificationStatus ?? 'Pending',
+            paymentAmount: latestTransaction?.amount ?? null,
+            paymentVerifiedAt: latestTransaction?.createdAt ?? null,
+          },
+        };
+      });
 
       const duration = Date.now() - startTime;
       logInfo(
@@ -674,7 +907,7 @@ admin.get(
   },
 );
 
-admin.route('/export', exportRouter);
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/admin/config
@@ -686,7 +919,7 @@ const configSchema = z.object({
   value: z.enum(['true', 'false']),
 });
 
-admin.patch('/config', async (c) => {
+admin.patch('/config', committeeMiddleware({ roles: ['Admin'] }), async (c) => {
   const body = await c.req.json();
   const parsed = configSchema.safeParse(body);
 
@@ -717,7 +950,7 @@ const contentSchema = z.object({
   content: z.string().min(1, 'content cannot be empty'),
 });
 
-admin.put('/content/:section', async (c) => {
+admin.put('/content/:section', committeeMiddleware({ roles: ['Admin'] }), async (c) => {
   const section = c.req.param('section');
   const body = await c.req.json();
   const parsed = contentSchema.safeParse(body);
@@ -924,8 +1157,9 @@ const verifySchema = z.object({
 });
 
 /**
- * Calculate document completeness
- * Returns which documents are missing (all docs are required)
+ * Calculate document completeness based on team size
+ * Returns which documents are missing based on actual team member count
+ * Also validates that no extra documents were submitted for non-existent members
  */
 function validateDocuments(admin: {
   leadKtm: string | null;
@@ -933,26 +1167,42 @@ function validateDocuments(admin: {
   m2Ktm: string | null;
   twibbonProof: string | null;
   posterProof: string | null;
-}): {
+}, teamMemberCount: number): {
   isComplete: boolean;
   missingDocs: Array<{ name: string; type: string }>;
   submittedDocs: Array<{ name: string; type: string }>;
+  invalidDocs: Array<{ name: string; type: string }>;
 } {
-  const allDocs = [
-    { name: 'Lead Student ID Card (KTM)', type: 'leadKtm', value: admin.leadKtm },
-    { name: 'Member 1 Student ID Card (KTM)', type: 'm1Ktm', value: admin.m1Ktm },
-    { name: 'Member 2 Student ID Card (KTM)', type: 'm2Ktm', value: admin.m2Ktm },
-    { name: 'Twibbon Proof', type: 'twibbonProof', value: admin.twibbonProof },
-    { name: 'Poster Proof', type: 'posterProof', value: admin.posterProof },
+  const requiredDocs = [
+    { name: 'Lead Student ID Card (KTM)', type: 'leadKtm', value: admin.leadKtm, required: true },
+    { name: 'Member 1 Student ID Card (KTM)', type: 'm1Ktm', value: admin.m1Ktm, required: teamMemberCount > 1 },
+    { name: 'Member 2 Student ID Card (KTM)', type: 'm2Ktm', value: admin.m2Ktm, required: teamMemberCount > 2 },
+    { name: 'Twibbon Proof', type: 'twibbonProof', value: admin.twibbonProof, required: true },
+    { name: 'Poster Proof', type: 'posterProof', value: admin.posterProof, required: true },
   ];
 
-  const missingDocs = allDocs.filter((doc) => !doc.value).map((doc) => ({ name: doc.name, type: doc.type }));
-  const submittedDocs = allDocs.filter((doc) => doc.value).map((doc) => ({ name: doc.name, type: doc.type }));
+  const missingDocs = requiredDocs
+    .filter((doc) => doc.required && !doc.value)
+    .map((doc) => ({ name: doc.name, type: doc.type }));
+  
+  const submittedDocs = requiredDocs
+    .filter((doc) => doc.value)
+    .map((doc) => ({ name: doc.name, type: doc.type }));
+
+  // Check for documents submitted for non-existent members
+  const invalidDocs = [];
+  if (admin.m1Ktm && teamMemberCount <= 1) {
+    invalidDocs.push({ name: 'Member 1 Student ID Card (KTM)', type: 'm1Ktm' });
+  }
+  if (admin.m2Ktm && teamMemberCount <= 2) {
+    invalidDocs.push({ name: 'Member 2 Student ID Card (KTM)', type: 'm2Ktm' });
+  }
 
   return {
-    isComplete: missingDocs.length === 0,
+    isComplete: missingDocs.length === 0 && invalidDocs.length === 0,
     missingDocs,
     submittedDocs,
+    invalidDocs,
   };
 }
 
@@ -972,8 +1222,8 @@ admin.post(
     const committee = c.get('committee');
     const db = createDb(c.env);
 
-    // Fetch team administration with all document fields
-    const [existing] = await db
+    // Fetch team administration with all document fields AND team member info
+    const [teamWithAdmin] = await db
       .select({
         teamId: teamAdministration.teamId,
         leadKtm: teamAdministration.leadKtm,
@@ -981,23 +1231,29 @@ admin.post(
         m2Ktm: teamAdministration.m2Ktm,
         twibbonProof: teamAdministration.twibbonProof,
         posterProof: teamAdministration.posterProof,
+        m1Name: teamAccounts.m1Name,
+        m2Name: teamAccounts.m2Name,
       })
       .from(teamAdministration)
+      .innerJoin(teamAccounts, eq(teamAdministration.teamId, teamAccounts.id))
       .where(eq(teamAdministration.teamId, teamId))
       .limit(1);
 
-    if (!existing) {
+    if (!teamWithAdmin) {
       return c.json({ error: 'Team administration record not found' }, 404);
     }
 
-    // Validate documents
+    // Count team members (lead is always present, m1 and m2 optional)
+    const teamMemberCount = 1 + (teamWithAdmin.m1Name ? 1 : 0) + (teamWithAdmin.m2Name ? 1 : 0);
+
+    // Validate documents based on actual team member count
     const docValidation = validateDocuments({
-      leadKtm: existing.leadKtm,
-      m1Ktm: existing.m1Ktm,
-      m2Ktm: existing.m2Ktm,
-      twibbonProof: existing.twibbonProof,
-      posterProof: existing.posterProof,
-    });
+      leadKtm: teamWithAdmin.leadKtm,
+      m1Ktm: teamWithAdmin.m1Ktm,
+      m2Ktm: teamWithAdmin.m2Ktm,
+      twibbonProof: teamWithAdmin.twibbonProof,
+      posterProof: teamWithAdmin.posterProof,
+    }, teamMemberCount);
 
     // Determine final action and rejection notes
     let finalAction = action;
@@ -1005,7 +1261,7 @@ admin.post(
     let wasAutoRejected = false;
 
     if (!docValidation.isComplete) {
-      // AUTO-REJECT: Always reject if documents are incomplete
+      // AUTO-REJECT: Always reject if documents are incomplete or invalid
       finalAction = 'Rejected';
       wasAutoRejected = true;
 
@@ -1013,9 +1269,15 @@ admin.post(
         ? `Submitted documents:\n${docValidation.submittedDocs.map((doc) => `✓ ${doc.name}`).join('\n')}\n\n`
         : '';
 
-      const missingList = docValidation.missingDocs.map((doc) => `✗ ${doc.name}`).join('\n');
+      const missingList = docValidation.missingDocs.length > 0
+        ? `Missing documents:\n${docValidation.missingDocs.map((doc) => `✗ ${doc.name}`).join('\n')}\n\n`
+        : '';
 
-      rejectionNotes = `Your document submission is incomplete and has been automatically rejected.\n\n${submittedList}Missing documents:\n${missingList}\n\nPlease upload all required documents and resubmit for verification.`;
+      const invalidList = docValidation.invalidDocs.length > 0
+        ? `Invalid documents (submitted for non-existent members):\n${docValidation.invalidDocs.map((doc) => `✗ ${doc.name}`).join('\n')}\n\n`
+        : '';
+
+      rejectionNotes = `Your document submission is incomplete or invalid and has been automatically rejected.\n\n${submittedList}${missingList}${invalidList}Please ensure all uploaded documents correspond to actual team members and upload any missing required documents, then resubmit for verification.`;
     } else if (finalAction === 'Rejected' && manualRejectionNotes) {
       rejectionNotes = manualRejectionNotes;
     }
@@ -1031,7 +1293,7 @@ admin.post(
       .where(eq(teamAdministration.teamId, teamId))
       .returning();
 
-    // Fetch team details
+    // Fetch team details with payment status
     const [team] = await db
       .select({
         id: teamAccounts.id,
@@ -1039,11 +1301,74 @@ admin.post(
         institution: teamAccounts.institution,
         leadName: teamAccounts.leadName,
         competitionId: teamAccounts.competitionId,
+        currentStageId: teamAccounts.currentStageId,
         createdAt: teamAccounts.createdAt,
       })
       .from(teamAccounts)
       .where(eq(teamAccounts.id, teamId))
       .limit(1);
+
+    // If documents are now verified AND no stage assigned yet
+    // Assign them to their first stage (don't wait for payment)
+    let stageAssignmentStatus: { assigned: boolean; reason?: string; stageId?: string; stageName?: string } = {
+      assigned: false,
+    };
+
+    if (finalAction === 'Verified' && team && !team.currentStageId) {
+      try {
+        const allStages = await db
+          .select()
+          .from(competitionStages)
+          .where(eq(competitionStages.competitionId, team.competitionId));
+
+        if (allStages && allStages.length > 0) {
+          // Sort stages: Preliminary first, then by startDate
+          const preliminaryStages = allStages.filter(s => 
+            s.name.toLowerCase().includes('preliminary')
+          );
+          
+          const firstStage = preliminaryStages.length > 0 
+            ? preliminaryStages.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0]
+            : allStages.sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0];
+
+          if (firstStage) {
+            await db
+              .update(teamAccounts)
+              .set({ currentStageId: firstStage.id })
+              .where(eq(teamAccounts.id, teamId));
+
+            logInfo('admin.verify', `Team ${teamId} assigned to stage after document verification`, {
+              stageId: firstStage.id,
+              stageName: firstStage.name,
+            });
+
+            stageAssignmentStatus = {
+              assigned: true,
+              stageId: firstStage.id,
+              stageName: firstStage.name,
+            };
+          }
+        } else {
+          stageAssignmentStatus = {
+            assigned: false,
+            reason: 'No competition stages configured',
+          };
+          logError('admin.verify', `No stages found for competition ${team.competitionId}`);
+        }
+      } catch (stageError) {
+        // Log error but don't fail the verification
+        stageAssignmentStatus = {
+          assigned: false,
+          reason: `Stage assignment failed: ${stageError instanceof Error ? stageError.message : String(stageError)}`,
+        };
+        logError('admin.verify', 'Failed to assign team to stage after document verification', stageError);
+      }
+    } else if (finalAction === 'Verified' && team && team.currentStageId) {
+      stageAssignmentStatus = {
+        assigned: false,
+        reason: 'Team already has stage assigned',
+      };
+    }
 
     return c.json({
       success: true,
@@ -1059,6 +1384,7 @@ admin.post(
         missingDocs: docValidation.missingDocs,
         wasAutoRejected,
       },
+      stageAssignment: stageAssignmentStatus,
       team,
     });
   },
@@ -1131,9 +1457,9 @@ admin.get(
         .where(isNotNull(transactions.paymentProofUrl)) // Only manual payments with proof
         .orderBy(desc(transactions.createdAt));
 
-      // Generate signed URLs for each transaction
-      const transactionsWithUrls = await Promise.all(
-        allTransactions.map(async (txn) => {
+      // Generate signed URLs for each transaction with concurrency limit
+      const urlTasks = allTransactions.map(
+        (txn) => async () => {
           let signedUrl: string | null = null;
           if (txn.paymentProofUrl) {
             try {
@@ -1167,8 +1493,10 @@ admin.get(
             verifiedBy: txn.verifiedBy,
             createdAt: txn.createdAt,
           };
-        }),
+        }
       );
+
+      const transactionsWithUrls = await withConcurrencyLimit(urlTasks, 5);
 
       // Group by verification status
       const byStatus: Record<string, typeof transactionsWithUrls> = {
@@ -1660,10 +1988,10 @@ admin.get(
         `Found ${administrations.length} teams to process`,
       );
 
-      // Transform to include signed URLs and document metadata
+      // Transform to include signed URLs and document metadata with concurrency limit
       console.log('[admin.documents.teams] Processing document URLs for each team...');
-      const teams = await Promise.all(
-        administrations.map(async (admin) => {
+      const teamTasks = administrations.map(
+        (admin) => async () => {
           console.log(`[admin.documents.teams] Processing team: ${admin.teamName} (${admin.teamId})`);
           
           // Helper to create signed URL if document exists
@@ -1736,8 +2064,10 @@ admin.get(
             verifiedBy: admin.verifiedBy,
             rejectionNotes: admin.rejectionNotes,
           };
-        }),
+        }
       );
+
+      const teams = await withConcurrencyLimit(teamTasks, 5);
 
       console.log('[admin.documents.teams] ✅ All teams processed');
       console.log('[admin.documents.teams] Response summary:', {
@@ -1924,7 +2254,7 @@ admin.get(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/metrics/competitions
-// Team count per competition (via COUNT + GROUP BY) + grand total
+// Team count and total participants (lead + members) per competition + grand totals
 // Security: Admin or Committee role
 // ─────────────────────────────────────────────────────────────────────────────
 admin.get(
@@ -1933,21 +2263,59 @@ admin.get(
   async (c) => {
     const db = createDb(c.env);
 
-    const rows = await db
+    // Fetch all teams with member info
+    const allTeams = await db
       .select({
-        competitionId: competitions.id,
+        competitionId: teamAccounts.competitionId,
         competitionName: competitions.name,
-        teamCount: sql<number>`cast(count(${teamAccounts.id}) as integer)`,
+        leadName: teamAccounts.leadName,
+        m1Name: teamAccounts.m1Name,
+        m2Name: teamAccounts.m2Name,
       })
       .from(teamAccounts)
-      .rightJoin(competitions, eq(teamAccounts.competitionId, competitions.id))
-      .groupBy(competitions.id, competitions.name);
+      .rightJoin(competitions, eq(teamAccounts.competitionId, competitions.id));
 
-    const grandTotal = rows.reduce((acc, r) => acc + (r.teamCount ?? 0), 0);
+    // Group by competition and calculate metrics
+    const competitionMap = new Map<string, {
+      competitionId: string;
+      competitionName: string;
+      teamCount: number;
+      participantCount: number;
+    }>();
+
+    for (const team of allTeams) {
+      if (!team.competitionId) continue; // Skip if no team in this competition
+
+      const key = team.competitionId;
+      if (!competitionMap.has(key)) {
+        competitionMap.set(key, {
+          competitionId: team.competitionId,
+          competitionName: team.competitionName,
+          teamCount: 0,
+          participantCount: 0,
+        });
+      }
+
+      const entry = competitionMap.get(key)!;
+      entry.teamCount += 1;
+      
+      // Count participants: 1 (lead) + m1 (if exists) + m2 (if exists)
+      let participantCount = 1; // Always has lead
+      if (team.m1Name) participantCount += 1;
+      if (team.m2Name) participantCount += 1;
+      entry.participantCount += participantCount;
+    }
+
+    const rows = Array.from(competitionMap.values());
+
+    const grandTotals = {
+      teamCount: rows.reduce((acc, r) => acc + r.teamCount, 0),
+      participantCount: rows.reduce((acc, r) => acc + r.participantCount, 0),
+    };
 
     return c.json({
       competitions: rows,
-      grandTotal,
+      grandTotals,
     });
   },
 );
@@ -2187,7 +2555,60 @@ admin.get(
         teams: createDrizzleSubmissionTeamRepo(db),
       };
 
-      // Group teams by competition
+      // Group teams by stage to batch-fetch requirements (CRITICAL OPTIMIZATION)
+      const stageTeamsMap = new Map<
+        string,
+        {
+          stageId: string;
+          teams: typeof allTeams;
+        }
+      >();
+
+      for (const team of allTeams) {
+        if (!team.currentStageId) continue;
+        const key = team.currentStageId;
+        if (!stageTeamsMap.has(key)) {
+          stageTeamsMap.set(key, {
+            stageId: team.currentStageId,
+            teams: [],
+          });
+        }
+        stageTeamsMap.get(key)!.teams.push(team);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Grouped teams into ${stageTeamsMap.size} stages for batch processing`,
+      );
+
+      // Pre-fetch all requirements for each stage (HUGE optimization: fetch once per stage, not once per team!)
+      const stageRequirementsMap = new Map<string, Awaited<ReturnType<typeof deps.submissions.getStageRequirementsList>>>();
+      for (const [stageId, stageData] of stageTeamsMap.entries()) {
+        const requirements = await deps.submissions.getStageRequirementsList(stageId);
+        stageRequirementsMap.set(stageId, requirements);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Pre-fetched requirements for all stages`,
+      );
+
+      // Fetch all submissions for all teams in this stage in ONE batch query (CRITICAL OPTIMIZATION)
+      const allTeamIds = Array.from(stageTeamsMap.values()).flatMap((s) => s.teams.map((t) => t.teamId));
+      const allSubmissionsByTeamMap = new Map<string, Awaited<ReturnType<typeof deps.submissions.getAllTeamSubmissionsBatch>>>();
+      
+      for (const [stageId, stageData] of stageTeamsMap.entries()) {
+        const teamIds = stageData.teams.map((t) => t.teamId);
+        const submissionMap = await deps.submissions.getAllTeamSubmissionsBatch(teamIds, stageId);
+        allSubmissionsByTeamMap.set(stageId, submissionMap);
+      }
+
+      logInfo(
+        'admin.submissions.all',
+        `Pre-fetched all submissions in ${stageTeamsMap.size} batch queries`,
+      );
+
+      // Group teams by competition and build responses from pre-fetched data (NO MORE DB QUERIES!)
       const competitionMap = new Map<
         string,
         {
@@ -2198,6 +2619,7 @@ admin.get(
       >();
 
       for (const team of allTeams) {
+        if (!team.currentStageId) continue;
         const key = team.competitionId;
         if (!competitionMap.has(key)) {
           competitionMap.set(key, {
@@ -2209,40 +2631,55 @@ admin.get(
         competitionMap.get(key)!.teams.push(team);
       }
 
-      // Fetch submissions for all teams in parallel
-      const result = await Promise.all(
-        Array.from(competitionMap.values()).map(async (competition) => {
-          const teamsWithSubmissions = await Promise.all(
-            competition.teams.map(async (team) => {
-              try {
-                const submissions = await listAllSubmissions(team.teamId, deps);
-                return {
-                  teamId: team.teamId,
-                  teamName: team.teamName,
-                  institution: team.institution,
-                  ...submissions,
-                };
-              } catch (error) {
-                // Skip teams with errors (e.g., no stage assigned)
-                logInfo(
-                  'admin.submissions.all',
-                  `Skipped team ${team.teamId}: ${error instanceof Error ? error.message : String(error)}`,
-                );
-                return null;
-              }
-            }),
-          );
+      // Build result from cached data (NO CONCURRENT QUERIES, just data transformation)
+      const result = Array.from(competitionMap.values()).map((competition) => {
+        const teamsWithSubmissions = competition.teams
+          .map((team) => {
+            if (!team.currentStageId) return null;
 
-          return {
-            competitionId: competition.competitionId,
-            competitionName: competition.competitionName,
-            totalTeams: teamsWithSubmissions.filter((t) => t !== null).length,
-            teams: teamsWithSubmissions.filter(
-              (t): t is NonNullable<typeof teamsWithSubmissions[0]> => t !== null,
-            ),
-          };
-        }),
-      );
+            const requirements = stageRequirementsMap.get(team.currentStageId);
+            const submissionsByTeam = allSubmissionsByTeamMap.get(team.currentStageId);
+            
+            if (!requirements || !submissionsByTeam) return null;
+
+            const teamSubmissions = submissionsByTeam.get(team.teamId) || [];
+            const submissionMap = new Map(teamSubmissions.map((s) => [s.requirementId, s]));
+
+            const submissionStatuses = requirements.map((req) => {
+              const submission = submissionMap.get(req.id);
+              return {
+                requirementId: req.id,
+                documentName: req.documentName,
+                submitted: !!submission,
+                isValid: submission?.isValid ?? false,
+                submittedAt: submission?.submittedAt ?? null,
+                fileUrl: submission?.fileUrl ?? null,
+              };
+            });
+
+            const submittedCount = submissionStatuses.filter((s) => s.submitted).length;
+            const completionPercentage =
+              requirements.length > 0 ? Math.round((submittedCount / requirements.length) * 100) : 0;
+
+            return {
+              teamId: team.teamId,
+              teamName: team.teamName,
+              institution: team.institution,
+              submissions: submissionStatuses,
+              totalRequirements: requirements.length,
+              submittedCount,
+              completionPercentage,
+            };
+          })
+          .filter((t): t is NonNullable<typeof t> => t !== null);
+
+        return {
+          competitionId: competition.competitionId,
+          competitionName: competition.competitionName,
+          totalTeams: teamsWithSubmissions.length,
+          teams: teamsWithSubmissions,
+        };
+      });
 
       const duration = Date.now() - startTime;
       logInfo(

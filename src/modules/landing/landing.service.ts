@@ -68,6 +68,7 @@ export async function registerTeamStep1(
 
 /**
  * Step 2: Update team with additional fields (contact + optional members).
+ * Validates that the team member count falls within the competition's min/max requirements.
  */
 export async function registerTeamStep2(
   input: Step2RegistrationInput,
@@ -82,6 +83,36 @@ export async function registerTeamStep2(
 
   if (!team) {
     throw new Error(`Team "${input.teamId}" not found`);
+  }
+
+  // Fetch competition details to check member count constraints
+  const [competition] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.id, team.competitionId))
+    .limit(1);
+
+  if (!competition) {
+    throw new Error(`Competition "${team.competitionId}" not found`);
+  }
+
+  // Calculate total member count: lead + optional members
+  const memberCount =
+    1 + // lead is always present
+    (input.m1Name ? 1 : 0) +
+    (input.m2Name ? 1 : 0);
+
+  // Validate member count against competition constraints
+  if (memberCount < competition.minMembers) {
+    throw new Error(
+      `Team must have at least ${competition.minMembers} members. Current: ${memberCount}`,
+    );
+  }
+
+  if (memberCount > competition.maxMembers) {
+    throw new Error(
+      `Team cannot exceed ${competition.maxMembers} members. Current: ${memberCount}`,
+    );
   }
 
   // Update with additional fields
@@ -160,6 +191,7 @@ export async function checkRegistrationStatus(
 /**
  * Complete Registration (Upsert): Create or update team with all fields at once.
  * Combines Step 1 and Step 2 into a single operation.
+ * Validates that the team member count falls within the competition's min/max requirements.
  * 
  * If team already exists, it will be updated with new values.
  * If team doesn't exist, it will be created.
@@ -181,6 +213,25 @@ export async function registerTeamComplete(
 
   if (!competition) {
     throw new Error(`Competition "${input.competitionId}" not found`);
+  }
+
+  // Calculate total member count: lead + optional members
+  const memberCount =
+    1 + // lead is always present
+    (input.m1Name ? 1 : 0) +
+    (input.m2Name ? 1 : 0);
+
+  // Validate member count against competition constraints
+  if (memberCount < competition.minMembers) {
+    throw new Error(
+      `Team must have at least ${competition.minMembers} members. Current: ${memberCount}`,
+    );
+  }
+
+  if (memberCount > competition.maxMembers) {
+    throw new Error(
+      `Team cannot exceed ${competition.maxMembers} members. Current: ${memberCount}`,
+    );
   }
 
   // Check if team already exists
@@ -254,6 +305,7 @@ export async function getTeamData(
   m1Major: string | null;
   m2Name: string | null;
   m2Major: string | null;
+  currentStageId: string | null;
 } | null> {
   const [team] = await db
     .select()
@@ -278,5 +330,6 @@ export async function getTeamData(
     m1Major: team.m1Major,
     m2Name: team.m2Name,
     m2Major: team.m2Major,
+    currentStageId: team.currentStageId,
   };
 }

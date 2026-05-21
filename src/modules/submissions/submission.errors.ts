@@ -12,7 +12,9 @@ export type SubmissionErrorCode =
     | 'SIGNED_URL_FAILED'
     | 'DB_WRITE_FAILED'
     | 'SUBMISSION_NOT_FOUND'
-    | 'FILE_NOT_FOUND';
+    | 'FILE_NOT_FOUND'
+    | 'SUBMISSION_NOT_STARTED'
+    | 'SUBMISSION_DEADLINE_PASSED';
 
 export class SubmissionError extends Error {
     public readonly code: SubmissionErrorCode;
