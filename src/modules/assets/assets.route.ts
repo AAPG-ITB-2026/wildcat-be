@@ -14,6 +14,7 @@ assets.get('/guidebook/:competitionId', async (c) => {
 
         const result = await getGuidebookUrl(competitionId, { db, publicAssetUrl: c.env.PUBLIC_ASSET_URL });
 
+        c.header('Cache-Control', 'public, max-age=3600');
         return c.json({ success: true, data: result }, 200);
     } catch (error) {
         return handleServiceError(c, error);
